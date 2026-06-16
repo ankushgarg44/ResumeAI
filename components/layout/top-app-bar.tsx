@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SideNavbar } from "./side-navbar";
+import { UserButton } from "@clerk/nextjs";
 
 interface TopAppBarProps {
   title?: string;
@@ -53,11 +54,8 @@ export function TopAppBar({ title = "Dashboard" }: TopAppBarProps) {
           <span className="sr-only">Notifications</span>
         </Button>
 
-        {/* User Profile Dropdown Placeholder */}
-        <Avatar className="h-8 w-8 cursor-pointer border border-border">
-          <AvatarImage src="" alt="User" />
-          <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">AG</AvatarFallback>
-        </Avatar>
+        {/* User Profile */}
+        <UserButton afterSignOutUrl="/" />
       </div>
     </header>
   );

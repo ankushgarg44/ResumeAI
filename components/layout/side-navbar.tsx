@@ -12,8 +12,8 @@ import {
   Settings,
   CreditCard,
   HelpCircle,
-  LogOut,
 } from "lucide-react";
+import { useUser, UserButton } from "@clerk/nextjs";
 
 export const DASHBOARD_SIDEBAR_WIDTH = "w-64";
 
@@ -32,6 +32,7 @@ const footerNavItems = [
 
 export function SideNavbar({ className }: { className?: string }) {
   const pathname = usePathname();
+  const { user } = useUser();
 
   return (
     <aside
@@ -112,23 +113,15 @@ export function SideNavbar({ className }: { className?: string }) {
 
         {/* User Profile Summary */}
         <div className="flex items-center gap-3 px-2 py-2 mt-2">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0">
-            AG
-          </div>
+          <UserButton afterSignOutUrl="/" />
           <div className="flex-1 overflow-hidden">
             <p className="text-sm font-medium text-foreground truncate">
-              Ankush Garg
+              {user?.fullName || "User"}
             </p>
-            <p className="text-xs text-muted-foreground truncate">Pro Plan</p>
+            <p className="text-xs text-muted-foreground truncate">
+              {user?.primaryEmailAddress?.emailAddress || "user@example.com"}
+            </p>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-8 h-8 shrink-0 text-muted-foreground hover:text-destructive"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="sr-only">Log out</span>
-          </Button>
         </div>
       </div>
     </aside>

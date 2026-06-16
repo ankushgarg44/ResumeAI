@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, FileText } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { AuthButtons } from "@/components/auth/auth-buttons";
 
 const publicLinks = [
   { label: "Features", href: "#features" },
@@ -61,16 +62,7 @@ export function TopNavbar() {
 
         {/* Desktop Auth/CTAs */}
         <div className="hidden md:flex items-center gap-4">
-          <Link href="/sign-in">
-            <Button variant="ghost" className="font-medium">
-              Sign In
-            </Button>
-          </Link>
-          <Link href="/sign-up">
-            <Button className="font-medium bg-primary text-primary-foreground hover:bg-primary/90">
-              Get Started
-            </Button>
-          </Link>
+          <AuthButtons />
         </div>
 
         {/* Mobile Navigation */}
@@ -103,16 +95,7 @@ export function TopNavbar() {
             </nav>
 
             <div className="flex flex-col gap-3 mt-auto mb-6">
-              <Link href="/sign-in" className="w-full">
-                <Button variant="outline" className="w-full">
-                  Sign In
-                </Button>
-              </Link>
-              <Link href="/sign-up" className="w-full">
-                <Button className="w-full bg-primary text-primary-foreground">
-                  Get Started
-                </Button>
-              </Link>
+              <AuthButtons />
             </div>
           </SheetContent>
         </Sheet>
