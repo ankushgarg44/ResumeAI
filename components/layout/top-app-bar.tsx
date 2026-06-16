@@ -55,7 +55,7 @@ export function TopAppBar({ title = "Dashboard" }: TopAppBarProps) {
         </Button>
 
         {/* User Profile */}
-        <UserButton afterSignOutUrl="/" />
+        <UserButton />
       </div>
     </header>
   );

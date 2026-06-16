@@ -26,7 +26,7 @@ export function AuthButtons() {
           </Button>
         </Link>
         <div className="flex justify-center md:block">
-          <UserButton afterSignOutUrl="/" />
+          <UserButton />
         </div>
       </Show>
     </>
