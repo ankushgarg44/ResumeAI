@@ -95,7 +95,6 @@ export function SideNavbar({ className }: { className?: string }) {
       <div className="p-4 border-t border-sidebar-border mt-auto">
         <nav className="space-y-1 mb-4">
           {footerNavItems.map((item) => {
-            const isActive = pathname === item.href;
             return (
               <Link
                 key={item.label}

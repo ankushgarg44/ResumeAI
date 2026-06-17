@@ -1,264 +1,240 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { builderSteps } from "@/lib/mock-data";
-import { BuilderStep } from "@/types";
-import { Sparkles, ChevronRight, ChevronLeft, Save } from "lucide-react";
+import { ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { useResumeBuilder, BUILDER_STEPS } from "@/hooks/use-resume-builder";
+import { usePdfGenerator } from "@/hooks/use-pdf-generator";
+
+import { PersonalInfoStep } from "@/components/forms/personal-info-step";
+import { EducationStep } from "@/components/forms/education-step";
+import { CourseworkStep } from "@/components/forms/coursework-step";
+import { ExperienceStep } from "@/components/forms/experience-step";
+import { ProjectsStep } from "@/components/forms/projects-step";
+import { TechnicalSkillsStep } from "@/components/forms/technical-skills-step";
+import { LeadershipStep } from "@/components/forms/leadership-step";
+import { TemplateSelectionStep } from "@/components/forms/template-selection-step";
+import { GeneratingScreen } from "@/components/forms/generating-screen";
+import { SuccessScreen } from "@/components/forms/success-screen";
+import { ATSTemplate } from "@/components/resume-templates/ats-template";
+
+type BuilderPhase = "editing" | "generating" | "success";
+
 export default function BuilderPage() {
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const currentStep = builderSteps[currentStepIndex];
+  const builder = useResumeBuilder();
+  const templateRef = useRef<HTMLDivElement>(null);
+  const { generatePDF } = usePdfGenerator(templateRef);
 
-  const handleNext = () => {
-    if (currentStepIndex < builderSteps.length - 1) {
-      setCurrentStepIndex((prev) => prev + 1);
-    }
-  };
+  const [phase, setPhase] = useState<BuilderPhase>("editing");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+    "ats-professional"
+  );
 
-  const handleBack = () => {
-    if (currentStepIndex > 0) {
-      setCurrentStepIndex((prev) => prev - 1);
-    }
-  };
+  const progress =
+    ((builder.currentStep + 1) / builder.totalSteps) * 100;
 
-  // Calculate progress percentage
-  const progress = ((currentStepIndex + 1) / builderSteps.length) * 100;
+  const handleGenerate = useCallback(async () => {
+    setPhase("generating");
+  }, []);
+
+  const handleGenerateComplete = useCallback(async () => {
+    await generatePDF();
+    setPhase("success");
+  }, [generatePDF]);
+
+  const handleDownloadAgain = useCallback(async () => {
+    await generatePDF();
+  }, [generatePDF]);
+
+  const handleCreateAnother = useCallback(() => {
+    builder.resetBuilder();
+    setPhase("editing");
+    setSelectedTemplateId("ats-professional");
+  }, [builder]);
+
+  // Don't render until localStorage has been hydrated
+  if (!builder.hydrated) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] -m-4 md:-m-6">
-      {/* Top Action Bar & Progress */}
-      <div className="bg-card border-b border-border p-4 shrink-0 shadow-sm z-10">
-        <div className="max-w-7xl mx-auto flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <span className="text-muted-foreground">Draft Resume</span>
-            <span className="text-muted-foreground font-normal">/</span>
-            {currentStep.label}
-          </h2>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" className="hidden sm:flex text-muted-foreground">
-              <Save className="w-4 h-4 mr-2" /> Save Draft
-            </Button>
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                onClick={handleBack} 
-                disabled={currentStepIndex === 0}
-                className="bg-background"
-              >
-                <ChevronLeft className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Back</span>
-              </Button>
-              <Button 
-                onClick={handleNext}
-                className="bg-primary text-primary-foreground"
-              >
-                {currentStepIndex === builderSteps.length - 1 ? (
-                  "Finish"
-                ) : (
-                  <>
-                    <span className="hidden sm:inline">Next Step</span>
-                    <ChevronRight className="w-4 h-4 sm:ml-2" />
-                  </>
-                )}
-              </Button>
-            </div>
+    <div className="flex flex-col min-h-[calc(100vh-80px)] -m-4 md:-m-6">
+      {/* Hidden template for PDF generation */}
+      <div
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          top: 0,
+        }}
+        aria-hidden="true"
+      >
+        <ATSTemplate ref={templateRef} data={builder.resumeData} />
+      </div>
+
+      {/* Phase: Generating */}
+      {phase === "generating" && (
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg">
+            <GeneratingScreen onComplete={handleGenerateComplete} />
           </div>
         </div>
+      )}
 
-        {/* Progress Bar Container */}
-        <div className="max-w-7xl mx-auto">
-          <div className="flex justify-between mb-2 hidden sm:flex">
-            {builderSteps.map((step, idx) => (
-              <div 
-                key={step.key} 
-                className={cn(
-                  "text-xs font-medium transition-colors",
-                  idx <= currentStepIndex ? "text-primary" : "text-muted-foreground"
-                )}
-              >
-                {idx + 1}. {step.label}
-              </div>
-            ))}
-          </div>
-          <Progress value={progress} className="h-2 bg-muted">
-            <div 
-              className="h-full bg-primary transition-all duration-300 ease-in-out" 
-              style={{ width: `${progress}%` }} 
+      {/* Phase: Success */}
+      {phase === "success" && (
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg">
+            <SuccessScreen
+              onDownloadAgain={handleDownloadAgain}
+              onCreateAnother={handleCreateAnother}
             />
-          </Progress>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Main Builder Area - Dual Pane */}
-      <div className="flex-1 overflow-hidden flex flex-col lg:flex-row bg-background">
-        
-        {/* Left Pane - Editor */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:border-r border-border">
-          <div className="max-w-3xl mx-auto">
-            {currentStep.key === "basics" && <BasicsStep />}
-            {currentStep.key === "experience" && <ExperienceStep />}
-            {currentStep.key !== "basics" && currentStep.key !== "experience" && (
-              <div className="text-center py-20 text-muted-foreground">
-                <p>Component for {currentStep.label} goes here.</p>
+      {/* Phase: Editing (wizard) */}
+      {phase === "editing" && (
+        <>
+          {/* Top Progress Bar */}
+          <div className="bg-card border-b border-border p-4 shrink-0 shadow-sm z-10">
+            <div className="max-w-3xl mx-auto">
+              {/* Step indicators */}
+              <div className="hidden sm:flex justify-between mb-3">
+                {BUILDER_STEPS.map((step, idx) => (
+                  <button
+                    key={step.key}
+                    onClick={() => builder.goToStep(idx)}
+                    className={cn(
+                      "flex items-center gap-1.5 text-xs font-medium transition-colors cursor-pointer",
+                      idx <= builder.currentStep
+                        ? "text-primary"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors",
+                        idx < builder.currentStep
+                          ? "bg-primary border-primary text-primary-foreground"
+                          : idx === builder.currentStep
+                            ? "border-primary text-primary"
+                            : "border-muted text-muted-foreground"
+                      )}
+                    >
+                      {idx < builder.currentStep ? "✓" : step.number}
+                    </span>
+                    <span className="hidden lg:inline">{step.label}</span>
+                  </button>
+                ))}
               </div>
-            )}
-          </div>
-        </div>
 
-        {/* Right Pane - Preview (Hidden on small screens) */}
-        <div className="hidden lg:block w-[45%] bg-muted/30 p-6 overflow-y-auto">
-          <div className="sticky top-0">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-muted-foreground text-sm uppercase tracking-wider">Live Preview</h3>
-            </div>
-            {/* Mock Resume Preview Paper */}
-            <div className="aspect-[1/1.414] bg-white rounded shadow-sm border border-border p-8 relative overflow-hidden">
-               {/* Skeleton Content */}
-               <div className="w-3/4 h-8 bg-muted rounded mb-2" />
-               <div className="w-1/2 h-4 bg-muted/50 rounded mb-8" />
-               <div className="w-full h-px bg-border mb-6" />
-               <div className="w-full h-24 bg-muted/30 rounded mb-6" />
-               <div className="w-full h-px bg-border mb-6" />
-               <div className="w-2/3 h-5 bg-muted rounded mb-4" />
-               <div className="w-full h-16 bg-muted/30 rounded mb-4" />
-               <div className="w-full h-16 bg-muted/30 rounded" />
+              {/* Mobile step label */}
+              <div className="sm:hidden text-sm font-medium text-muted-foreground mb-2">
+                Step {builder.currentStep + 1} of {builder.totalSteps}:{" "}
+                <span className="text-foreground">
+                  {builder.currentStepInfo.label}
+                </span>
+              </div>
+
+              <Progress value={progress} className="h-2 bg-muted" />
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-// ==========================================
-// Step Components (Inline for brevity in this task)
-// ==========================================
+          {/* Main content area */}
+          <div className="flex-1 overflow-y-auto p-4 md:p-6">
+            <div className="max-w-3xl mx-auto">
+              {/* Step content */}
+              {builder.currentStepInfo.key === "personal-info" && (
+                <PersonalInfoStep
+                  data={builder.resumeData}
+                  onChange={builder.updateResumeData}
+                />
+              )}
+              {builder.currentStepInfo.key === "education" && (
+                <EducationStep
+                  data={builder.resumeData}
+                  onChange={builder.updateResumeData}
+                />
+              )}
+              {builder.currentStepInfo.key === "coursework" && (
+                <CourseworkStep
+                  data={builder.resumeData}
+                  onChange={builder.updateResumeData}
+                />
+              )}
+              {builder.currentStepInfo.key === "experience" && (
+                <ExperienceStep
+                  data={builder.resumeData}
+                  onChange={builder.updateResumeData}
+                />
+              )}
+              {builder.currentStepInfo.key === "projects" && (
+                <ProjectsStep
+                  data={builder.resumeData}
+                  onChange={builder.updateResumeData}
+                />
+              )}
+              {builder.currentStepInfo.key === "technical-skills" && (
+                <TechnicalSkillsStep
+                  data={builder.resumeData}
+                  onChange={builder.updateResumeData}
+                />
+              )}
+              {builder.currentStepInfo.key === "leadership" && (
+                <LeadershipStep
+                  data={builder.resumeData}
+                  onChange={builder.updateResumeData}
+                />
+              )}
+              {builder.currentStepInfo.key === "template" && (
+                <TemplateSelectionStep
+                  selectedTemplateId={selectedTemplateId}
+                  onSelect={setSelectedTemplateId}
+                />
+              )}
 
-function BasicsStep() {
-  return (
-    <div className="space-y-8 animate-in fade-in duration-300">
-      <div>
-        <h3 className="text-2xl font-bold mb-1">Personal Information</h3>
-        <p className="text-muted-foreground">Start with the basics. This is how employers will contact you.</p>
-      </div>
+              {/* Navigation buttons */}
+              <div className="flex items-center justify-between mt-10 pb-6">
+                <Button
+                  variant="outline"
+                  onClick={builder.prevStep}
+                  disabled={builder.isFirstStep}
+                  className="bg-background"
+                >
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
 
-      {/* AI Assistant Card */}
-      <Card className="p-5 border-primary/20 bg-primary/5 shadow-sm">
-        <div className="flex items-start gap-4">
-          <div className="p-2 bg-primary/10 rounded-lg text-primary shrink-0">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <div className="flex-1 space-y-3">
-            <h4 className="font-semibold text-foreground">AI Auto-Fill</h4>
-            <p className="text-sm text-muted-foreground">
-              Paste your LinkedIn summary or a quick intro, and we'll fill out the fields below.
-            </p>
-            <div className="flex gap-2">
-              <Input placeholder="E.g., I'm a software engineer in SF with 5 years experience..." className="bg-background" />
-              <Button className="shrink-0 bg-primary text-primary-foreground">Auto-Fill</Button>
+                {builder.isLastStep ? (
+                  <Button
+                    onClick={handleGenerate}
+                    className="bg-primary text-primary-foreground shadow-sm"
+                    disabled={!selectedTemplateId}
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate Resume
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={builder.nextStep}
+                    className="bg-primary text-primary-foreground"
+                  >
+                    Next Step
+                    <ChevronRight className="w-4 h-4 ml-2" />
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </Card>
-
-      {/* Manual Form */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-2">
-          <Label htmlFor="fullName">Full Name</Label>
-          <Input id="fullName" placeholder="Jane Doe" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="currentRole">Current Role</Label>
-          <Input id="currentRole" placeholder="Senior Software Engineer" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" placeholder="jane@example.com" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="phone">Phone</Label>
-          <Input id="phone" type="tel" placeholder="+1 (555) 000-0000" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="location">Location</Label>
-          <Input id="location" placeholder="San Francisco, CA" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="linkedin">LinkedIn URL (Optional)</Label>
-          <Input id="linkedin" placeholder="linkedin.com/in/janedoe" />
-        </div>
-        <div className="space-y-2 md:col-span-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="summary">Professional Summary</Label>
-            <Button variant="ghost" size="sm" className="h-6 text-xs text-primary px-2 py-0">
-              <Sparkles className="w-3 h-3 mr-1" /> AI Write
-            </Button>
-          </div>
-          <Textarea 
-            id="summary" 
-            placeholder="Briefly summarize your expertise and career goals..." 
-            className="min-h-[120px] resize-none"
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ExperienceStep() {
-  return (
-    <div className="space-y-8 animate-in fade-in duration-300">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-2xl font-bold mb-1">Work Experience</h3>
-          <p className="text-muted-foreground">List your relevant experience, starting with the most recent.</p>
-        </div>
-        <Button variant="outline" className="bg-background">
-          + Add Position
-        </Button>
-      </div>
-
-      <Card className="p-6 border-border">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div className="space-y-2">
-            <Label htmlFor="company">Company</Label>
-            <Input id="company" placeholder="e.g. Google" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="role">Job Title</Label>
-            <Input id="role" placeholder="e.g. Software Engineer" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="startDate">Start Date</Label>
-            <Input id="startDate" type="month" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="endDate">End Date</Label>
-            <Input id="endDate" type="month" />
-          </div>
-        </div>
-        
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="desc">Description & Achievements</Label>
-            <Button variant="ghost" size="sm" className="h-6 text-xs text-primary px-2 py-0 bg-primary/10 hover:bg-primary/20">
-              <Sparkles className="w-3 h-3 mr-1" /> Generate Bullets
-            </Button>
-          </div>
-          <Textarea 
-            id="desc" 
-            placeholder="Describe your responsibilities and achievements..." 
-            className="min-h-[150px]"
-          />
-        </div>
-      </Card>
+        </>
+      )}
     </div>
   );
 }

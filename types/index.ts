@@ -132,19 +132,83 @@ export interface DashboardStats {
   downloads: number;
 }
 
+// ---------- Resume Data (Builder Wizard) ----------
+export interface ResumePersonalInfo {
+  fullName: string;
+  address: string;
+  phone: string;
+  email: string;
+  linkedIn: string;
+  github: string;
+}
+
+export interface ResumeEducation {
+  id: string;
+  university: string;
+  degree: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  cgpa: string;
+}
+
+export interface ResumeExperience {
+  id: string;
+  company: string;
+  role: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  bullets: string[];
+}
+
+export interface ResumeProject {
+  id: string;
+  title: string;
+  technologies: string;
+  date: string;
+  bullets: string[];
+}
+
+export interface ResumeTechnicalSkills {
+  languages: string[];
+  developerTools: string[];
+  frameworks: string[];
+}
+
+export interface ResumeLeadership {
+  id: string;
+  organization: string;
+  role: string;
+  duration: string;
+  bullets: string[];
+}
+
+export interface ResumeData {
+  personalInfo: ResumePersonalInfo;
+  education: ResumeEducation[];
+  coursework: string[];
+  experience: ResumeExperience[];
+  projects: ResumeProject[];
+  technicalSkills: ResumeTechnicalSkills;
+  leadership: ResumeLeadership[];
+}
+
 // ---------- Builder Steps ----------
 export type BuilderStep =
-  | "basics"
-  | "experience"
+  | "personal-info"
   | "education"
-  | "template"
-  | "review";
+  | "coursework"
+  | "experience"
+  | "projects"
+  | "technical-skills"
+  | "leadership"
+  | "template";
 
 export interface BuilderState {
-  currentStep: BuilderStep;
-  stepIndex: number;
+  currentStep: number;
   totalSteps: number;
-  resume: Partial<Resume>;
+  resumeData: ResumeData;
   selectedTemplateId: string | null;
 }
 

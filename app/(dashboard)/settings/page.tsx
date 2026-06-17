@@ -1,16 +1,22 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { mockUserSettings } from "@/lib/mock-data";
 import { getInitials } from "@/lib/utils";
+import { currentUser } from "@clerk/nextjs/server";
 import { User, Settings as SettingsIcon, CreditCard, Bell, Upload } from "lucide-react";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const user = await currentUser();
+  const firstName = user?.firstName || "";
+  const lastName = user?.lastName || "";
+  const email = user?.primaryEmailAddress?.emailAddress || "";
+  const avatarUrl = user?.imageUrl || "";
+  const initials = getInitials(`${firstName} ${lastName}`.trim() || "User");
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-10">
       <div>
@@ -49,12 +55,12 @@ export default function SettingsPage() {
             <div className="flex flex-col sm:flex-row gap-8">
               <div className="flex flex-col items-center gap-4">
                 <Avatar className="w-24 h-24 border border-border">
-                  <AvatarImage src={mockUserSettings.profile.avatarUrl} />
+                  {avatarUrl && <AvatarImage src={avatarUrl} />}
                   <AvatarFallback className="text-2xl bg-primary/10 text-primary">
-                    {getInitials(`${mockUserSettings.profile.firstName} ${mockUserSettings.profile.lastName}`)}
+                    {initials}
                   </AvatarFallback>
                 </Avatar>
-                <Button variant="outline" size="sm" className="w-full">
+                <Button variant="outline" size="sm" className="w-full" disabled>
                   <Upload className="w-4 h-4 mr-2" />
                   Change Avatar
                 </Button>
@@ -64,21 +70,21 @@ export default function SettingsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First name</Label>
-                    <Input id="firstName" defaultValue={mockUserSettings.profile.firstName} />
+                    <Input id="firstName" defaultValue={firstName} disabled />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Last name</Label>
-                    <Input id="lastName" defaultValue={mockUserSettings.profile.lastName} />
+                    <Input id="lastName" defaultValue={lastName} disabled />
                   </div>
                 </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" defaultValue={mockUserSettings.profile.email} />
+                  <Input id="email" type="email" defaultValue={email} disabled />
                 </div>
                 
                 <div className="pt-4 flex justify-end">
-                  <Button className="bg-primary text-primary-foreground">Save Changes</Button>
+                  <Button className="bg-primary text-primary-foreground" disabled>Save Changes</Button>
                 </div>
               </div>
             </div>
@@ -88,69 +94,23 @@ export default function SettingsPage() {
         {/* ACCOUNT TAB */}
         <TabsContent value="account" className="mt-6 space-y-6">
           <Card className="p-6 border-border">
-            <h3 className="text-lg font-semibold mb-4">Change Password</h3>
+            <h3 className="text-lg font-semibold mb-4">Account Administration</h3>
             <Separator className="mb-6" />
-            
-            <div className="space-y-4 max-w-md">
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword">Current password</Label>
-                <Input id="currentPassword" type="password" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">New password</Label>
-                <Input id="newPassword" type="password" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm new password</Label>
-                <Input id="confirmPassword" type="password" />
-              </div>
-              
-              <div className="pt-2">
-                <Button>Update Password</Button>
-              </div>
-            </div>
-          </Card>
-          
-          <Card className="p-6 border-destructive/20 border-2">
-            <h3 className="text-lg font-semibold text-destructive mb-2">Delete Account</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Permanently delete your account and all associated resumes. This action cannot be undone.
+              Your account settings are managed through Clerk Authentication. Please update your profile information or password directly via your identity provider.
             </p>
-            <Button variant="destructive">Delete Account</Button>
           </Card>
         </TabsContent>
 
         {/* BILLING TAB */}
         <TabsContent value="billing" className="mt-6 space-y-6">
           <Card className="p-6 border-border">
-            <h3 className="text-lg font-semibold mb-4">Current Plan</h3>
+            <h3 className="text-lg font-semibold mb-4">Billing & Subscriptions</h3>
             <Separator className="mb-6" />
-            
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h4 className="text-2xl font-bold uppercase tracking-wider text-primary">{mockUserSettings.billing.plan}</h4>
-                  <Badge className="bg-primary text-primary-foreground">Active</Badge>
-                </div>
-                <p className="text-muted-foreground">
-                  You are currently on the Pro plan. Your next billing date is {mockUserSettings.billing.nextBillingDate}.
-                </p>
-              </div>
-              <Button variant="outline">Cancel Subscription</Button>
-            </div>
-            
-            <h4 className="font-semibold mb-4">Payment Method</h4>
-            <div className="flex items-center justify-between p-4 border border-border rounded-lg bg-muted/30">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-8 bg-card border border-border rounded flex items-center justify-center font-bold text-xs">
-                  VISA
-                </div>
-                <div>
-                  <p className="font-medium">Visa ending in 4242</p>
-                  <p className="text-sm text-muted-foreground">Expires 12/26</p>
-                </div>
-              </div>
-              <Button variant="ghost" size="sm">Edit</Button>
+            <div className="py-6 text-center text-muted-foreground bg-muted/20 border border-dashed rounded-lg">
+              <CreditCard className="w-12 h-12 mx-auto mb-3 opacity-40 text-muted-foreground" />
+              <p className="font-semibold text-foreground">Billing functionality coming soon.</p>
+              <p className="text-sm mt-1">Pricing tiers and payment processing are currently under development.</p>
             </div>
           </Card>
         </TabsContent>
@@ -160,7 +120,10 @@ export default function SettingsPage() {
           <Card className="p-6 border-border">
             <h3 className="text-lg font-semibold mb-4">Notification Preferences</h3>
             <Separator className="mb-6" />
-            <p className="text-muted-foreground italic text-sm">Notification settings coming soon.</p>
+            <div className="py-6 text-center text-muted-foreground bg-muted/20 border border-dashed rounded-lg">
+              <Bell className="w-12 h-12 mx-auto mb-3 opacity-40 text-muted-foreground" />
+              <p className="font-semibold text-foreground">Notification settings coming soon.</p>
+            </div>
           </Card>
         </TabsContent>
       </Tabs>

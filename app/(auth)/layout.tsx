@@ -30,7 +30,7 @@ export default function AuthLayout({
             Your career breakthrough starts here.
           </h2>
           <p className="text-lg text-muted-foreground mb-8">
-            "ResumeAI transformed my job search. The ATS optimization helped me land interviews at three top-tier tech companies within weeks."
+            &ldquo;ResumeAI transformed my job search. The ATS optimization helped me land interviews at three top-tier tech companies within weeks.&rdquo;
           </p>
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary">

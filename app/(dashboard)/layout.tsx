@@ -1,4 +1,4 @@
-import { SideNavbar, DASHBOARD_SIDEBAR_WIDTH } from "@/components/layout/side-navbar";
+import { SideNavbar } from "@/components/layout/side-navbar";
 import { TopAppBar } from "@/components/layout/top-app-bar";
 
 export default function DashboardLayout({
