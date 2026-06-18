@@ -18,6 +18,8 @@ import { ExperienceStep } from "@/components/forms/experience-step";
 import { ProjectsStep } from "@/components/forms/projects-step";
 import { TechnicalSkillsStep } from "@/components/forms/technical-skills-step";
 import { LeadershipStep } from "@/components/forms/leadership-step";
+import { TrainingStep } from "@/components/forms/training-step";
+import { PublicationsStep } from "@/components/forms/publications-step";
 import { TemplateSelectionStep } from "@/components/forms/template-selection-step";
 import { GeneratingScreen } from "@/components/forms/generating-screen";
 import { SuccessScreen } from "@/components/forms/success-screen";
@@ -60,7 +62,6 @@ function BuilderContent() {
         : "Untitled Resume";
       
       const currentData = builder.resumeData;
-      console.log("[Builder] Saving resume_data:", JSON.stringify(currentData, null, 2));
       await builder.saveToDatabase(
         title,
         selectedTemplateId || "ats-professional",
@@ -170,6 +171,20 @@ function BuilderContent() {
       case "leadership":
         return (
           <LeadershipStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      case "training":
+        return (
+          <TrainingStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      case "publications":
+        return (
+          <PublicationsStep
             data={builder.resumeData}
             onChange={builder.updateResumeData}
           />

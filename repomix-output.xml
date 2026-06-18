@@ -172,85 +172,6 @@ export default function Page() {
 }
 </file>
 
-<file path="app/api/resumes/[id]/route.ts">
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-import { getResume, saveResume, deleteResume } from "@/lib/supabase/resumes";
-
-interface RouteParams {
-  params: Promise<{ id: string }>;
-}
-
-export async function GET(req: NextRequest, { params }: RouteParams) {
-  try {
-    const { userId } = await auth();
-    
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { id } = await params;
-    const resume = await getResume(id, userId);
-
-    if (!resume) {
-      return NextResponse.json({ error: "Resume not found" }, { status: 404 });
-    }
-
-    return NextResponse.json(resume);
-  } catch (error) {
-    console.error("[GET /api/resumes/[id]]", error);
-    return NextResponse.json(
-      { error: "Failed to fetch resume" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PATCH(req: NextRequest, { params }: RouteParams) {
-  try {
-    const { userId } = await auth();
-    
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { id } = await params;
-    const body = await req.json();
-    
-    const updated = await saveResume(id, userId, body);
-
-    return NextResponse.json(updated);
-  } catch (error) {
-    console.error("[PATCH /api/resumes/[id]]", error);
-    return NextResponse.json(
-      { error: "Failed to update resume" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(req: NextRequest, { params }: RouteParams) {
-  try {
-    const { userId } = await auth();
-    
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { id } = await params;
-    await deleteResume(id, userId);
-
-    return new NextResponse(null, { status: 204 });
-  } catch (error) {
-    console.error("[DELETE /api/resumes/[id]]", error);
-    return NextResponse.json(
-      { error: "Failed to delete resume" },
-      { status: 500 }
-    );
-  }
-}
-</file>
-
 <file path="app/api/resumes/route.ts">
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
@@ -3082,126 +3003,6 @@ export const supabase = createClient(
 );
 </file>
 
-<file path="lib/supabase/resumes.ts">
-import { serverSupabase } from "./server";
-import type { Resume, ResumeData } from "@/types";
-
-export async function getUserResumes(userId: string): Promise<Resume[]> {
-  const { data, error } = await serverSupabase
-    .from("resumes")
-    .select("*")
-    .eq("user_id", userId)
-    .order("updated_at", { ascending: false });
-
-  if (error) {
-    console.error("Error fetching resumes:", error);
-    throw new Error("Failed to fetch resumes");
-  }
-
-  // Cast the raw DB response to our Resume type
-  return data as unknown as Resume[];
-}
-
-export async function getResume(id: string, userId: string): Promise<Resume | null> {
-  const { data, error } = await serverSupabase
-    .from("resumes")
-    .select("*")
-    .eq("id", id)
-    .eq("user_id", userId)
-    .single();
-
-  if (error) {
-    if (error.code === "PGRST116") return null; // Not found
-    console.error("Error fetching resume:", error);
-    throw new Error("Failed to fetch resume");
-  }
-
-  return data as unknown as Resume;
-}
-
-export async function createResume(
-  userId: string,
-  templateId: string,
-  title: string
-): Promise<Resume> {
-  const { data, error } = await serverSupabase
-    .from("resumes")
-    .insert({
-      user_id: userId,
-      template_id: templateId,
-      title,
-      resume_data: {}, // Handled by default in DB, but good to be explicit
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Error creating resume:", error);
-    throw new Error("Failed to create resume");
-  }
-
-  return data as unknown as Resume;
-}
-
-export async function saveResume(
-  id: string,
-  userId: string,
-  resumeData: Partial<Resume>
-): Promise<Resume> {
-  // We only allow updating specific fields
-  const updates: any = {};
-  if (resumeData.title !== undefined) updates.title = resumeData.title;
-  if (resumeData.template_id !== undefined) updates.template_id = resumeData.template_id;
-  if (resumeData.resume_data !== undefined) updates.resume_data = resumeData.resume_data;
-  if (resumeData.status !== undefined) updates.status = resumeData.status;
-
-  const { data, error } = await serverSupabase
-    .from("resumes")
-    .update(updates)
-    .eq("id", id)
-    .eq("user_id", userId)
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Error saving resume:", error);
-    throw new Error("Failed to save resume");
-  }
-
-  return data as unknown as Resume;
-}
-
-export async function deleteResume(id: string, userId: string): Promise<void> {
-  const { error } = await serverSupabase
-    .from("resumes")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", userId);
-
-  if (error) {
-    console.error("Error deleting resume:", error);
-    throw new Error("Failed to delete resume");
-  }
-}
-
-export async function updateATSScore(
-  id: string,
-  userId: string,
-  score: number
-): Promise<void> {
-  const { error } = await serverSupabase
-    .from("resumes")
-    .update({ ats_score: score })
-    .eq("id", id)
-    .eq("user_id", userId);
-
-  if (error) {
-    console.error("Error updating ATS score:", error);
-    throw new Error("Failed to update ATS score");
-  }
-}
-</file>
-
 <file path="lib/supabase/server.ts">
 import { createClient } from "@supabase/supabase-js";
 import { Database } from "./types";
@@ -3907,6 +3708,87 @@ export default function DashboardLayout({
 }
 </file>
 
+<file path="app/api/resumes/[id]/route.ts">
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { getResume, saveResume, deleteResume } from "@/lib/supabase/resumes";
+
+interface RouteParams {
+  params: Promise<{ id: string }>;
+}
+
+export async function GET(req: NextRequest, { params }: RouteParams) {
+  try {
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const resume = await getResume(id, userId);
+
+    if (!resume) {
+      return NextResponse.json({ error: "Resume not found" }, { status: 404 });
+    }
+
+    console.log("[API] Resume fetched:", JSON.stringify(resume?.resume_data, null, 2));
+
+    return NextResponse.json(resume);
+  } catch (error) {
+    console.error("[GET /api/resumes/[id]]", error);
+    return NextResponse.json(
+      { error: "Failed to fetch resume" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: NextRequest, { params }: RouteParams) {
+  try {
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const body = await req.json();
+    
+    const updated = await saveResume(id, userId, body);
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error("[PATCH /api/resumes/[id]]", error);
+    return NextResponse.json(
+      { error: "Failed to update resume" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: NextRequest, { params }: RouteParams) {
+  try {
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    await deleteResume(id, userId);
+
+    return new NextResponse(null, { status: 204 });
+  } catch (error) {
+    console.error("[DELETE /api/resumes/[id]]", error);
+    return NextResponse.json(
+      { error: "Failed to delete resume" },
+      { status: 500 }
+    );
+  }
+}
+</file>
+
 <file path="components/auth/auth-buttons.tsx">
 "use client";
 
@@ -4306,6 +4188,128 @@ export const ModernTwoColumnTemplate = forwardRef<HTMLDivElement, { data: Resume
     );
   }
 );
+</file>
+
+<file path="lib/supabase/resumes.ts">
+import { serverSupabase } from "./server";
+import type { Resume, ResumeData } from "@/types";
+
+export async function getUserResumes(userId: string): Promise<Resume[]> {
+  const { data, error } = await serverSupabase
+    .from("resumes")
+    .select("*")
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching resumes:", error);
+    throw new Error("Failed to fetch resumes");
+  }
+
+  // Cast the raw DB response to our Resume type
+  return data as unknown as Resume[];
+}
+
+export async function getResume(id: string, userId: string): Promise<Resume | null> {
+  const { data, error } = await serverSupabase
+    .from("resumes")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") return null; // Not found
+    console.error("Error fetching resume:", error);
+    throw new Error("Failed to fetch resume");
+  }
+
+  return data as unknown as Resume;
+}
+
+export async function createResume(
+  userId: string,
+  templateId: string,
+  title: string
+): Promise<Resume> {
+  const { data, error } = await serverSupabase
+    .from("resumes")
+    .insert({
+      user_id: userId,
+      template_id: templateId,
+      title,
+      resume_data: {}, // Handled by default in DB, but good to be explicit
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating resume:", error);
+    throw new Error("Failed to create resume");
+  }
+
+  return data as unknown as Resume;
+}
+
+export async function saveResume(
+  id: string,
+  userId: string,
+  resumeData: Partial<Resume>
+): Promise<Resume> {
+  // We only allow updating specific fields
+  const updates: any = {};
+  if (resumeData.title !== undefined) updates.title = resumeData.title;
+  if (resumeData.template_id !== undefined) updates.template_id = resumeData.template_id;
+  if (resumeData.resume_data !== undefined) updates.resume_data = resumeData.resume_data;
+  if (resumeData.status !== undefined) updates.status = resumeData.status;
+
+  console.log("[DB] saveResume payload:", JSON.stringify(updates.resume_data, null, 2));
+
+  const { data, error } = await serverSupabase
+    .from("resumes")
+    .update(updates)
+    .eq("id", id)
+    .eq("user_id", userId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error saving resume:", error);
+    throw new Error("Failed to save resume");
+  }
+
+  return data as unknown as Resume;
+}
+
+export async function deleteResume(id: string, userId: string): Promise<void> {
+  const { error } = await serverSupabase
+    .from("resumes")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
+
+  if (error) {
+    console.error("Error deleting resume:", error);
+    throw new Error("Failed to delete resume");
+  }
+}
+
+export async function updateATSScore(
+  id: string,
+  userId: string,
+  score: number
+): Promise<void> {
+  const { error } = await serverSupabase
+    .from("resumes")
+    .update({ ats_score: score })
+    .eq("id", id)
+    .eq("user_id", userId);
+
+  if (error) {
+    console.error("Error updating ATS score:", error);
+    throw new Error("Failed to update ATS score");
+  }
+}
 </file>
 
 <file path="lib/api.ts">
@@ -5264,251 +5268,6 @@ export function TopNavbar() {
 }
 </file>
 
-<file path="hooks/use-resume-builder.ts">
-"use client";
-
-import { useState, useCallback, useEffect, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
-import type {
-  ResumeData,
-  ResumeEducation,
-  ResumeExperience,
-  ResumeProject,
-  ResumeLeadership,
-} from "@/types";
-import { getStepsForTemplate } from "@/lib/template-configs";
-import type { StepInfo } from "@/lib/template-configs";
-
-const STORAGE_KEY = "resumeai-draft";
-
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 9);
-}
-
-export function getEmptyResumeData(): ResumeData {
-  return {
-    personalInfo: {
-      fullName: "",
-      address: "",
-      phone: "",
-      email: "",
-      linkedIn: "",
-      github: "",
-    },
-    education: [],
-    coursework: [],
-    experience: [],
-    projects: [],
-    technicalSkills: {
-      languages: [],
-      developerTools: [],
-      frameworks: [],
-    },
-    leadership: [],
-  };
-}
-
-export function createEmptyEducation(): ResumeEducation {
-  return {
-    id: generateId(),
-    university: "",
-    degree: "",
-    location: "",
-    startDate: "",
-    endDate: "",
-    cgpa: "",
-  };
-}
-
-export function createEmptyExperience(): ResumeExperience {
-  return {
-    id: generateId(),
-    company: "",
-    role: "",
-    location: "",
-    startDate: "",
-    endDate: "",
-    bullets: [""],
-  };
-}
-
-export function createEmptyProject(): ResumeProject {
-  return {
-    id: generateId(),
-    title: "",
-    technologies: "",
-    date: "",
-    bullets: [""],
-  };
-}
-
-export function createEmptyLeadership(): ResumeLeadership {
-  return {
-    id: generateId(),
-    organization: "",
-    role: "",
-    duration: "",
-    bullets: [""],
-  };
-}
-
-export function useResumeBuilder(templateId: string | null) {
-  const searchParams = useSearchParams();
-  const resumeId = searchParams?.get("id");
-  const isNew = searchParams?.get("new") === "1";
-
-  const [resumeData, setResumeData] = useState<ResumeData>(getEmptyResumeData);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [hydrated, setHydrated] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isLoading, setIsLoading] = useState(!!resumeId);
-  const [loadedTemplateId, setLoadedTemplateId] = useState<string | null>(null);
-
-  // Derive steps dynamically from the selected template
-  const steps: StepInfo[] = useMemo(
-    () => getStepsForTemplate(templateId),
-    [templateId]
-  );
-
-  // Clamp currentStep when steps array changes (template switch)
-  useEffect(() => {
-    setCurrentStep((prev) => Math.min(prev, steps.length - 1));
-  }, [steps.length]);
-
-  // Load from API if ID is present, else restore from localStorage
-  useEffect(() => {
-    async function init() {
-      if (resumeId) {
-        try {
-          const res = await fetch(`/api/resumes/${resumeId}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.resume_data) {
-              // Ensure we merge with empty so no fields are completely missing
-              setResumeData((prev) => ({ ...getEmptyResumeData(), ...data.resume_data }));
-            }
-            if (data.template_id) {
-              setLoadedTemplateId(data.template_id);
-            }
-          }
-        } catch (error) {
-          console.error("Failed to load resume from API", error);
-        } finally {
-          setIsLoading(false);
-          setHydrated(true);
-        }
-      } else if (isNew) {
-        setResumeData(getEmptyResumeData());
-        setIsLoading(false);
-        setHydrated(true);
-      } else {
-        try {
-          const saved = localStorage.getItem(STORAGE_KEY);
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (parsed.resumeData) setResumeData(parsed.resumeData);
-            if (typeof parsed.currentStep === "number") setCurrentStep(parsed.currentStep);
-          }
-        } catch {
-          // ignore parse errors
-        }
-        setIsLoading(false);
-        setHydrated(true);
-      }
-    }
-    init();
-  }, [resumeId]);
-
-  // Auto-save to localStorage on changes
-  useEffect(() => {
-    if (!hydrated) return;
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ resumeData, currentStep, templateId })
-      );
-    } catch {
-      // ignore quota errors
-    }
-  }, [resumeData, currentStep, templateId, hydrated]);
-
-  const updateResumeData = useCallback(
-    (updater: (prev: ResumeData) => ResumeData) => {
-      setResumeData((prev) => updater(prev));
-    },
-    []
-  );
-
-  const nextStep = useCallback(() => {
-    setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
-  }, [steps.length]);
-
-  const prevStep = useCallback(() => {
-    setCurrentStep((prev) => Math.max(prev - 1, 0));
-  }, []);
-
-  const goToStep = useCallback(
-    (step: number) => {
-      setCurrentStep(Math.max(0, Math.min(step, steps.length - 1)));
-    },
-    [steps.length]
-  );
-
-  const resetBuilder = useCallback(() => {
-    setResumeData(getEmptyResumeData());
-    setCurrentStep(0);
-    localStorage.removeItem(STORAGE_KEY);
-  }, []);
-
-  const saveToDatabase = useCallback(
-    async (title: string, currentTemplateId: string) => {
-      setIsSaving(true);
-      try {
-        const url = resumeId ? `/api/resumes/${resumeId}` : "/api/resumes";
-        const method = resumeId ? "PATCH" : "POST";
-        
-        const res = await fetch(url, {
-          method,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title,
-            template_id: currentTemplateId,
-            resume_data: resumeData,
-            status: "published",
-          }),
-        });
-        
-        if (!res.ok) throw new Error("Failed to save resume");
-        return await res.json();
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [resumeData, resumeId]
-  );
-
-  return {
-    resumeData,
-    currentStep,
-    hydrated,
-    steps,
-    updateResumeData,
-    nextStep,
-    prevStep,
-    goToStep,
-    resetBuilder,
-    saveToDatabase,
-    isSaving,
-    isLoading,
-    loadedTemplateId,
-    totalSteps: steps.length,
-    currentStepInfo: steps[currentStep] ?? steps[0],
-    isFirstStep: currentStep === 0,
-    isLastStep: currentStep === steps.length - 1,
-  };
-}
-</file>
-
 <file path="lib/template-configs.ts">
 import type { ResumePersonalInfo, BuilderStep } from "@/types";
 
@@ -5872,331 +5631,6 @@ export interface NavItem {
   href: string;
   icon: string;
   active?: boolean;
-}
-</file>
-
-<file path="app/(dashboard)/builder/page.tsx">
-"use client";
-
-import { useState, useRef, useCallback, Suspense, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-import { useResumeBuilder } from "@/hooks/use-resume-builder";
-import { usePdfGenerator } from "@/hooks/use-pdf-generator";
-import { getTemplateConfig } from "@/lib/template-configs";
-
-import { PersonalInfoStep } from "@/components/forms/personal-info-step";
-import { EducationStep } from "@/components/forms/education-step";
-import { CourseworkStep } from "@/components/forms/coursework-step";
-import { ExperienceStep } from "@/components/forms/experience-step";
-import { ProjectsStep } from "@/components/forms/projects-step";
-import { TechnicalSkillsStep } from "@/components/forms/technical-skills-step";
-import { LeadershipStep } from "@/components/forms/leadership-step";
-import { TemplateSelectionStep } from "@/components/forms/template-selection-step";
-import { GeneratingScreen } from "@/components/forms/generating-screen";
-import { SuccessScreen } from "@/components/forms/success-screen";
-import { ATSTemplate } from "@/components/resume-templates/ats-template";
-import { ModernTwoColumnTemplate } from "@/components/resume-templates/modern-two-column-template";
-
-type BuilderPhase = "editing" | "generating" | "success";
-
-function BuilderContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const resumeId = searchParams?.get("id");
-  const templateParam = searchParams?.get("template");
-
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
-    resumeId ? null : (templateParam || "ats-professional")
-  );
-
-  const builder = useResumeBuilder(selectedTemplateId);
-
-  useEffect(() => {
-    if (builder.loadedTemplateId) {
-      setSelectedTemplateId(builder.loadedTemplateId);
-    }
-  }, [builder.loadedTemplateId]);
-  const templateRef = useRef<HTMLDivElement>(null);
-  const { generatePDF } = usePdfGenerator(templateRef);
-
-  const [phase, setPhase] = useState<BuilderPhase>("editing");
-
-  const templateConfig = getTemplateConfig(selectedTemplateId);
-
-  const progress =
-    ((builder.currentStep + 1) / builder.totalSteps) * 100;
-
-  const handleGenerate = useCallback(async () => {
-    try {
-      const title = builder.resumeData.personalInfo.fullName 
-        ? `${builder.resumeData.personalInfo.fullName} Resume`
-        : "Untitled Resume";
-      
-      await builder.saveToDatabase(
-        title,
-        selectedTemplateId || "ats-professional"
-      );
-    } catch (error) {
-      console.error("Failed to save resume:", error);
-      // We still proceed to generating so the user can download their PDF even if DB save fails
-    }
-    setPhase("generating");
-  }, [builder, selectedTemplateId]);
-
-  const handleGenerateComplete = useCallback(async () => {
-    await generatePDF();
-    setPhase("success");
-  }, [generatePDF]);
-
-  const handleDownloadAgain = useCallback(async () => {
-    await generatePDF();
-  }, [generatePDF]);
-
-  const handleCreateAnother = useCallback(() => {
-    builder.resetBuilder();
-    setPhase("editing");
-    setSelectedTemplateId(null);
-    router.push("/builder?new=1");
-  }, [builder, router]);
-
-  const handleTemplateSelect = useCallback(
-    (id: string) => {
-      setSelectedTemplateId(id);
-      // If user is on step 0 (template selection), stay there.
-      // If they switched mid-way, clamp step to step 1 (first form step)
-      // so they review their data in the new step order.
-      if (builder.currentStep > 0) {
-        builder.goToStep(1);
-      }
-    },
-    [builder]
-  );
-
-  // Don't render until localStorage has been hydrated and API fetch is complete
-  if (!builder.hydrated || builder.isLoading) {
-    return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
-
-  // Render the step component for a given step key
-  const renderStep = () => {
-    const key = builder.currentStepInfo.key;
-
-    switch (key) {
-      case "template":
-        return (
-          <TemplateSelectionStep
-            selectedTemplateId={selectedTemplateId}
-            onSelect={handleTemplateSelect}
-          />
-        );
-      case "personal-info":
-        return (
-          <PersonalInfoStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-            visibleFields={templateConfig.personalInfoFields}
-            requiredFields={templateConfig.requiredPersonalInfoFields}
-          />
-        );
-      case "education":
-        return (
-          <EducationStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "coursework":
-        return (
-          <CourseworkStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "experience":
-        return (
-          <ExperienceStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "projects":
-        return (
-          <ProjectsStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "technical-skills":
-        return (
-          <TechnicalSkillsStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "leadership":
-        return (
-          <LeadershipStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div className="flex flex-col min-h-[calc(100vh-80px)] -m-4 md:-m-6">
-      {/* Hidden template for PDF generation */}
-      <div
-        style={{
-          position: "absolute",
-          left: "-9999px",
-          top: 0,
-        }}
-        aria-hidden="true"
-      >
-        {selectedTemplateId === "ats-professional" && (
-          <ATSTemplate ref={templateRef} data={builder.resumeData} />
-        )}
-        {selectedTemplateId === "modern-two-column" && (
-          <ModernTwoColumnTemplate ref={templateRef} data={builder.resumeData} />
-        )}
-      </div>
-
-      {/* Phase: Generating */}
-      {phase === "generating" && (
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg">
-            <GeneratingScreen onComplete={handleGenerateComplete} />
-          </div>
-        </div>
-      )}
-
-      {/* Phase: Success */}
-      {phase === "success" && (
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg">
-            <SuccessScreen
-              onDownloadAgain={handleDownloadAgain}
-              onCreateAnother={handleCreateAnother}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Phase: Editing (wizard) */}
-      {phase === "editing" && (
-        <>
-          {/* Top Progress Bar */}
-          <div className="bg-card border-b border-border p-4 shrink-0 shadow-sm z-10">
-            <div className="max-w-3xl mx-auto">
-              {/* Step indicators */}
-              <div className="hidden sm:flex justify-between mb-3">
-                {builder.steps.map((step, idx) => (
-                  <button
-                    key={step.key}
-                    onClick={() => builder.goToStep(idx)}
-                    className={cn(
-                      "flex items-center gap-1.5 text-xs font-medium transition-colors cursor-pointer",
-                      idx <= builder.currentStep
-                        ? "text-primary"
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors",
-                        idx < builder.currentStep
-                          ? "bg-primary border-primary text-primary-foreground"
-                          : idx === builder.currentStep
-                            ? "border-primary text-primary"
-                            : "border-muted text-muted-foreground"
-                      )}
-                    >
-                      {idx < builder.currentStep ? "✓" : step.number}
-                    </span>
-                    <span className="hidden lg:inline">{step.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Mobile step label */}
-              <div className="sm:hidden text-sm font-medium text-muted-foreground mb-2">
-                Step {builder.currentStep + 1} of {builder.totalSteps}:{" "}
-                <span className="text-foreground">
-                  {builder.currentStepInfo.label}
-                </span>
-              </div>
-
-              <Progress value={progress} className="h-2 bg-muted" />
-            </div>
-          </div>
-
-          {/* Main content area */}
-          <div className="flex-1 overflow-y-auto p-4 md:p-6">
-            <div className="max-w-3xl mx-auto">
-              {/* Step content */}
-              {renderStep()}
-
-              {/* Navigation buttons */}
-              <div className="flex items-center justify-between mt-10 pb-6">
-                <Button
-                  variant="outline"
-                  onClick={builder.prevStep}
-                  disabled={builder.isFirstStep}
-                  className="bg-background"
-                >
-                  <ChevronLeft className="w-4 h-4 mr-2" />
-                  Back
-                </Button>
-
-                {builder.isLastStep ? (
-                  <Button
-                    onClick={handleGenerate}
-                    className="bg-primary text-primary-foreground shadow-sm"
-                    disabled={!selectedTemplateId}
-                  >
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Generate Resume
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={builder.nextStep}
-                    className="bg-primary text-primary-foreground"
-                  >
-                    Next Step
-                    <ChevronRight className="w-4 h-4 ml-2" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-export default function BuilderPage() {
-  return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center h-[60vh]">
-        <div className="animate-pulse text-muted-foreground">Loading Builder...</div>
-      </div>
-    }>
-      <BuilderContent />
-    </Suspense>
-  );
 }
 </file>
 
@@ -6715,6 +6149,589 @@ export function TopAppBar({ title = "Dashboard" }: TopAppBarProps) {
         <UserButton />
       </div>
     </header>
+  );
+}
+</file>
+
+<file path="hooks/use-resume-builder.ts">
+"use client";
+
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
+import type {
+  ResumeData,
+  ResumeEducation,
+  ResumeExperience,
+  ResumeProject,
+  ResumeLeadership,
+} from "@/types";
+import { getStepsForTemplate } from "@/lib/template-configs";
+import type { StepInfo } from "@/lib/template-configs";
+
+const STORAGE_KEY = "resumeai-draft";
+
+function generateId(): string {
+  return Math.random().toString(36).substring(2, 9);
+}
+
+export function getEmptyResumeData(): ResumeData {
+  return {
+    personalInfo: {
+      fullName: "",
+      address: "",
+      phone: "",
+      email: "",
+      linkedIn: "",
+      github: "",
+    },
+    education: [],
+    coursework: [],
+    experience: [],
+    projects: [],
+    technicalSkills: {
+      languages: [],
+      developerTools: [],
+      frameworks: [],
+    },
+    leadership: [],
+  };
+}
+
+export function createEmptyEducation(): ResumeEducation {
+  return {
+    id: generateId(),
+    university: "",
+    degree: "",
+    location: "",
+    startDate: "",
+    endDate: "",
+    cgpa: "",
+  };
+}
+
+export function createEmptyExperience(): ResumeExperience {
+  return {
+    id: generateId(),
+    company: "",
+    role: "",
+    location: "",
+    startDate: "",
+    endDate: "",
+    bullets: [""],
+  };
+}
+
+export function createEmptyProject(): ResumeProject {
+  return {
+    id: generateId(),
+    title: "",
+    technologies: "",
+    date: "",
+    bullets: [""],
+  };
+}
+
+export function createEmptyLeadership(): ResumeLeadership {
+  return {
+    id: generateId(),
+    organization: "",
+    role: "",
+    duration: "",
+    bullets: [""],
+  };
+}
+
+export function useResumeBuilder(templateId: string | null) {
+  const searchParams = useSearchParams();
+  const resumeId = searchParams?.get("id");
+  const isNew = searchParams?.get("new") === "1";
+
+  const [resumeData, setResumeData] = useState<ResumeData>(getEmptyResumeData);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [hydrated, setHydrated] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(!!resumeId);
+  const [loadedTemplateId, setLoadedTemplateId] = useState<string | null>(null);
+
+  // Derive steps dynamically from the selected template
+  const steps: StepInfo[] = useMemo(
+    () => getStepsForTemplate(templateId),
+    [templateId]
+  );
+
+  // Clamp currentStep when steps array changes (template switch)
+  useEffect(() => {
+    setCurrentStep((prev) => Math.min(prev, steps.length - 1));
+  }, [steps.length]);
+
+  // Load from API if ID is present, else restore from localStorage
+  useEffect(() => {
+    async function init() {
+      if (resumeId) {
+        try {
+          const res = await fetch(`/api/resumes/${resumeId}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.resume_data) {
+              const empty = getEmptyResumeData();
+              const loaded = data.resume_data as Partial<ResumeData>;
+              setResumeData({
+                personalInfo: { ...empty.personalInfo, ...(loaded.personalInfo ?? {}) },
+                education: Array.isArray(loaded.education) ? loaded.education : empty.education,
+                coursework: Array.isArray(loaded.coursework) ? loaded.coursework : empty.coursework,
+                experience: Array.isArray(loaded.experience) ? loaded.experience : empty.experience,
+                projects: Array.isArray(loaded.projects) ? loaded.projects : empty.projects,
+                technicalSkills: {
+                  ...empty.technicalSkills,
+                  ...(loaded.technicalSkills ?? {}),
+                },
+                leadership: Array.isArray(loaded.leadership) ? loaded.leadership : empty.leadership,
+              });
+            }
+            if (data.template_id) {
+              setLoadedTemplateId(data.template_id);
+            }
+          }
+        } catch (error) {
+          console.error("Failed to load resume from API", error);
+        } finally {
+          setIsLoading(false);
+          setHydrated(true);
+        }
+      } else if (isNew) {
+        setResumeData(getEmptyResumeData());
+        setIsLoading(false);
+        setHydrated(true);
+      } else {
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.resumeData) setResumeData(parsed.resumeData);
+            if (typeof parsed.currentStep === "number") setCurrentStep(parsed.currentStep);
+          }
+        } catch {
+          // ignore parse errors
+        }
+        setIsLoading(false);
+        setHydrated(true);
+      }
+    }
+    init();
+  }, [resumeId]);
+
+  // Auto-save to localStorage on changes
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ resumeData, currentStep, templateId })
+      );
+    } catch {
+      // ignore quota errors
+    }
+  }, [resumeData, currentStep, templateId, hydrated]);
+
+  const updateResumeData = useCallback(
+    (updater: (prev: ResumeData) => ResumeData) => {
+      setResumeData((prev) => updater(prev));
+    },
+    []
+  );
+
+  const nextStep = useCallback(() => {
+    setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
+  }, [steps.length]);
+
+  const prevStep = useCallback(() => {
+    setCurrentStep((prev) => Math.max(prev - 1, 0));
+  }, []);
+
+  const goToStep = useCallback(
+    (step: number) => {
+      setCurrentStep(Math.max(0, Math.min(step, steps.length - 1)));
+    },
+    [steps.length]
+  );
+
+  const resetBuilder = useCallback(() => {
+    setResumeData(getEmptyResumeData());
+    setCurrentStep(0);
+    localStorage.removeItem(STORAGE_KEY);
+  }, []);
+
+  const saveToDatabase = useCallback(
+    async (title: string, currentTemplateId: string, dataToSave?: ResumeData) => {
+      const payload = dataToSave ?? resumeData;
+      setIsSaving(true);
+      try {
+        const url = resumeId ? `/api/resumes/${resumeId}` : "/api/resumes";
+        const method = resumeId ? "PATCH" : "POST";
+        const res = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            template_id: currentTemplateId,
+            resume_data: payload,
+            status: "published",
+          }),
+        });
+        if (!res.ok) throw new Error("Failed to save resume");
+        return await res.json();
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [resumeData, resumeId]
+  );
+
+  return {
+    resumeData,
+    currentStep,
+    hydrated,
+    steps,
+    updateResumeData,
+    nextStep,
+    prevStep,
+    goToStep,
+    resetBuilder,
+    saveToDatabase,
+    isSaving,
+    isLoading,
+    loadedTemplateId,
+    totalSteps: steps.length,
+    currentStepInfo: steps[currentStep] ?? steps[0],
+    isFirstStep: currentStep === 0,
+    isLastStep: currentStep === steps.length - 1,
+  };
+}
+</file>
+
+<file path="app/(dashboard)/builder/page.tsx">
+"use client";
+
+import { useState, useRef, useCallback, Suspense, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+import { useResumeBuilder } from "@/hooks/use-resume-builder";
+import { usePdfGenerator } from "@/hooks/use-pdf-generator";
+import { getTemplateConfig } from "@/lib/template-configs";
+
+import { PersonalInfoStep } from "@/components/forms/personal-info-step";
+import { EducationStep } from "@/components/forms/education-step";
+import { CourseworkStep } from "@/components/forms/coursework-step";
+import { ExperienceStep } from "@/components/forms/experience-step";
+import { ProjectsStep } from "@/components/forms/projects-step";
+import { TechnicalSkillsStep } from "@/components/forms/technical-skills-step";
+import { LeadershipStep } from "@/components/forms/leadership-step";
+import { TemplateSelectionStep } from "@/components/forms/template-selection-step";
+import { GeneratingScreen } from "@/components/forms/generating-screen";
+import { SuccessScreen } from "@/components/forms/success-screen";
+import { ATSTemplate } from "@/components/resume-templates/ats-template";
+import { ModernTwoColumnTemplate } from "@/components/resume-templates/modern-two-column-template";
+
+type BuilderPhase = "editing" | "generating" | "success";
+
+function BuilderContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const resumeId = searchParams?.get("id");
+  const templateParam = searchParams?.get("template");
+
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+    resumeId ? null : (templateParam || "ats-professional")
+  );
+
+  const builder = useResumeBuilder(selectedTemplateId);
+
+  useEffect(() => {
+    if (builder.loadedTemplateId) {
+      setSelectedTemplateId(builder.loadedTemplateId);
+    }
+  }, [builder.loadedTemplateId]);
+  const templateRef = useRef<HTMLDivElement>(null);
+  const { generatePDF } = usePdfGenerator(templateRef);
+
+  const [phase, setPhase] = useState<BuilderPhase>("editing");
+
+  const templateConfig = getTemplateConfig(selectedTemplateId);
+
+  const progress =
+    ((builder.currentStep + 1) / builder.totalSteps) * 100;
+
+  const handleGenerate = useCallback(async () => {
+    try {
+      const title = builder.resumeData.personalInfo.fullName 
+        ? `${builder.resumeData.personalInfo.fullName} Resume`
+        : "Untitled Resume";
+      
+      const currentData = builder.resumeData;
+      await builder.saveToDatabase(
+        title,
+        selectedTemplateId || "ats-professional",
+        currentData
+      );
+    } catch (error) {
+      console.error("Failed to save resume:", error);
+      // We still proceed to generating so the user can download their PDF even if DB save fails
+    }
+    setPhase("generating");
+  }, [builder, selectedTemplateId]);
+
+  const handleGenerateComplete = useCallback(async () => {
+    await generatePDF();
+    setPhase("success");
+  }, [generatePDF]);
+
+  const handleDownloadAgain = useCallback(async () => {
+    await generatePDF();
+  }, [generatePDF]);
+
+  const handleCreateAnother = useCallback(() => {
+    builder.resetBuilder();
+    setPhase("editing");
+    setSelectedTemplateId(null);
+    router.push("/builder?new=1");
+  }, [builder, router]);
+
+  const handleTemplateSelect = useCallback(
+    (id: string) => {
+      setSelectedTemplateId(id);
+      // If user is on step 0 (template selection), stay there.
+      // If they switched mid-way, clamp step to step 1 (first form step)
+      // so they review their data in the new step order.
+      if (builder.currentStep > 0) {
+        builder.goToStep(1);
+      }
+    },
+    [builder]
+  );
+
+  // Don't render until localStorage has been hydrated and API fetch is complete
+  if (!builder.hydrated || builder.isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  // Render the step component for a given step key
+  const renderStep = () => {
+    const key = builder.currentStepInfo.key;
+
+    switch (key) {
+      case "template":
+        return (
+          <TemplateSelectionStep
+            selectedTemplateId={selectedTemplateId}
+            onSelect={handleTemplateSelect}
+          />
+        );
+      case "personal-info":
+        return (
+          <PersonalInfoStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+            visibleFields={templateConfig.personalInfoFields}
+            requiredFields={templateConfig.requiredPersonalInfoFields}
+          />
+        );
+      case "education":
+        return (
+          <EducationStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      case "coursework":
+        return (
+          <CourseworkStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      case "experience":
+        return (
+          <ExperienceStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      case "projects":
+        return (
+          <ProjectsStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      case "technical-skills":
+        return (
+          <TechnicalSkillsStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      case "leadership":
+        return (
+          <LeadershipStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="flex flex-col min-h-[calc(100vh-80px)] -m-4 md:-m-6">
+      {/* Hidden template for PDF generation */}
+      <div
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          top: 0,
+        }}
+        aria-hidden="true"
+      >
+        {selectedTemplateId === "ats-professional" && (
+          <ATSTemplate ref={templateRef} data={builder.resumeData} />
+        )}
+        {selectedTemplateId === "modern-two-column" && (
+          <ModernTwoColumnTemplate ref={templateRef} data={builder.resumeData} />
+        )}
+      </div>
+
+      {/* Phase: Generating */}
+      {phase === "generating" && (
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg">
+            <GeneratingScreen onComplete={handleGenerateComplete} />
+          </div>
+        </div>
+      )}
+
+      {/* Phase: Success */}
+      {phase === "success" && (
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg">
+            <SuccessScreen
+              onDownloadAgain={handleDownloadAgain}
+              onCreateAnother={handleCreateAnother}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Phase: Editing (wizard) */}
+      {phase === "editing" && (
+        <>
+          {/* Top Progress Bar */}
+          <div className="bg-card border-b border-border p-4 shrink-0 shadow-sm z-10">
+            <div className="max-w-3xl mx-auto">
+              {/* Step indicators */}
+              <div className="hidden sm:flex justify-between mb-3">
+                {builder.steps.map((step, idx) => (
+                  <button
+                    key={step.key}
+                    onClick={() => builder.goToStep(idx)}
+                    className={cn(
+                      "flex items-center gap-1.5 text-xs font-medium transition-colors cursor-pointer",
+                      idx <= builder.currentStep
+                        ? "text-primary"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors",
+                        idx < builder.currentStep
+                          ? "bg-primary border-primary text-primary-foreground"
+                          : idx === builder.currentStep
+                            ? "border-primary text-primary"
+                            : "border-muted text-muted-foreground"
+                      )}
+                    >
+                      {idx < builder.currentStep ? "✓" : step.number}
+                    </span>
+                    <span className="hidden lg:inline">{step.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Mobile step label */}
+              <div className="sm:hidden text-sm font-medium text-muted-foreground mb-2">
+                Step {builder.currentStep + 1} of {builder.totalSteps}:{" "}
+                <span className="text-foreground">
+                  {builder.currentStepInfo.label}
+                </span>
+              </div>
+
+              <Progress value={progress} className="h-2 bg-muted" />
+            </div>
+          </div>
+
+          {/* Main content area */}
+          <div className="flex-1 overflow-y-auto p-4 md:p-6">
+            <div className="max-w-3xl mx-auto">
+              {/* Step content */}
+              {renderStep()}
+
+              {/* Navigation buttons */}
+              <div className="flex items-center justify-between mt-10 pb-6">
+                <Button
+                  variant="outline"
+                  onClick={builder.prevStep}
+                  disabled={builder.isFirstStep}
+                  className="bg-background"
+                >
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+
+                {builder.isLastStep ? (
+                  <Button
+                    onClick={handleGenerate}
+                    className="bg-primary text-primary-foreground shadow-sm"
+                    disabled={!selectedTemplateId}
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate Resume
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={builder.nextStep}
+                    className="bg-primary text-primary-foreground"
+                  >
+                    Next Step
+                    <ChevronRight className="w-4 h-4 ml-2" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function BuilderPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="animate-pulse text-muted-foreground">Loading Builder...</div>
+      </div>
+    }>
+      <BuilderContent />
+    </Suspense>
   );
 }
 </file>

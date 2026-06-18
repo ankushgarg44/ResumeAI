@@ -31,6 +31,8 @@ const SECTION_LABELS: Record<BuilderStep, string> = {
   "projects": "Projects",
   "technical-skills": "Skills",
   "leadership": "Leadership",
+  "training": "Training",
+  "publications": "Publications",
 };
 
 // ─── Template Configs ────────────────────────────────────
@@ -79,6 +81,8 @@ export const TEMPLATE_CONFIGS: Record<string, TemplateConfig> = {
       "experience",
       "projects",
       "technical-skills",
+      "training",
+      "publications",
     ],
     personalInfoFields: ["fullName", "address", "phone", "email", "linkedIn", "github"],
     requiredPersonalInfoFields: ["fullName", "email"],

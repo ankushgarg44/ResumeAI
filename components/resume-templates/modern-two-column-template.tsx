@@ -21,6 +21,8 @@ export const ModernTwoColumnTemplate = forwardRef<HTMLDivElement, { data: Resume
       experience,
       projects,
       technicalSkills,
+      training,
+      publications,
     } = data;
 
     // Contact string parts
@@ -261,6 +263,84 @@ export const ModernTwoColumnTemplate = forwardRef<HTMLDivElement, { data: Resume
                           <div key={i} style={{ marginBottom: "4px" }}>{bullet}</div>
                         ))}
                       </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {training && training.length > 0 && (
+              <div style={{ marginBottom: "25px" }}>
+                <h2
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 300,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    color: "#888",
+                    margin: "0 0 10px 0",
+                  }}
+                >
+                  Training
+                </h2>
+                {training.map((trn) => (
+                  <div key={trn.id} style={{ marginBottom: "15px" }}>
+                    <div style={{ fontSize: "14px", fontWeight: 600, color: "#111", textTransform: "uppercase" }}>
+                      {trn.title}
+                    </div>
+                    <div style={{ color: "#666", marginTop: "2px", marginBottom: "4px" }}>
+                      {trn.organization} {trn.location && `| ${trn.location}`}
+                    </div>
+                    {(trn.startDate || trn.endDate) && (
+                      <div style={{ color: "#666", marginTop: "2px", marginBottom: "4px" }}>
+                        {trn.startDate && formatDate(trn.startDate)} {trn.endDate && `– ${formatDate(trn.endDate)}`}
+                      </div>
+                    )}
+                    {trn.description && trn.description.length > 0 && (
+                      <ul style={{ margin: 0, paddingLeft: "20px", color: "#444" }}>
+                        {trn.description.filter(d => d.trim() !== "").map((desc, i) => (
+                          <li key={i} style={{ marginBottom: "4px" }}>{desc}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {publications && publications.length > 0 && (
+              <div style={{ marginBottom: "25px" }}>
+                <h2
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 300,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    color: "#888",
+                    margin: "0 0 10px 0",
+                  }}
+                >
+                  Publications
+                </h2>
+                {publications.map((pub) => (
+                  <div key={pub.id} style={{ marginBottom: "15px" }}>
+                    <div style={{ fontSize: "14px", fontWeight: 600, color: "#111", textTransform: "uppercase" }}>
+                      {pub.title}
+                    </div>
+                    <div style={{ color: "#666", marginTop: "2px", marginBottom: "4px" }}>
+                      {pub.publisher} {pub.publicationDate && `| ${formatDate(pub.publicationDate)}`}
+                    </div>
+                    {pub.link && (
+                      <div style={{ color: "#0066cc", marginTop: "2px", marginBottom: "4px", fontSize: "11px" }}>
+                        {pub.link}
+                      </div>
+                    )}
+                    {pub.description && pub.description.length > 0 && (
+                      <ul style={{ margin: 0, paddingLeft: "20px", color: "#444" }}>
+                        {pub.description.filter(d => d.trim() !== "").map((desc, i) => (
+                          <li key={i} style={{ marginBottom: "4px" }}>{desc}</li>
+                        ))}
+                      </ul>
                     )}
                   </div>
                 ))}

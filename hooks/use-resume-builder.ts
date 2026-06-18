@@ -8,6 +8,8 @@ import type {
   ResumeExperience,
   ResumeProject,
   ResumeLeadership,
+  ResumeTraining,
+  ResumePublication,
 } from "@/types";
 import { getStepsForTemplate } from "@/lib/template-configs";
 import type { StepInfo } from "@/lib/template-configs";
@@ -38,6 +40,8 @@ export function getEmptyResumeData(): ResumeData {
       frameworks: [],
     },
     leadership: [],
+    training: [],
+    publications: [],
   };
 }
 
@@ -85,6 +89,29 @@ export function createEmptyLeadership(): ResumeLeadership {
   };
 }
 
+export function createEmptyTraining(): ResumeTraining {
+  return {
+    id: generateId(),
+    title: "",
+    organization: "",
+    location: "",
+    startDate: "",
+    endDate: "",
+    description: [""],
+  };
+}
+
+export function createEmptyPublication(): ResumePublication {
+  return {
+    id: generateId(),
+    title: "",
+    publisher: "",
+    publicationDate: "",
+    link: "",
+    description: [""],
+  };
+}
+
 export function useResumeBuilder(templateId: string | null) {
   const searchParams = useSearchParams();
   const resumeId = searchParams?.get("id");
@@ -121,15 +148,17 @@ export function useResumeBuilder(templateId: string | null) {
               const loaded = data.resume_data as Partial<ResumeData>;
               setResumeData({
                 personalInfo: { ...empty.personalInfo, ...(loaded.personalInfo ?? {}) },
-                education: loaded.education ?? empty.education,
-                coursework: loaded.coursework ?? empty.coursework,
-                experience: loaded.experience ?? empty.experience,
-                projects: loaded.projects ?? empty.projects,
+                education: Array.isArray(loaded.education) ? loaded.education : empty.education,
+                coursework: Array.isArray(loaded.coursework) ? loaded.coursework : empty.coursework,
+                experience: Array.isArray(loaded.experience) ? loaded.experience : empty.experience,
+                projects: Array.isArray(loaded.projects) ? loaded.projects : empty.projects,
                 technicalSkills: {
                   ...empty.technicalSkills,
                   ...(loaded.technicalSkills ?? {}),
                 },
-                leadership: loaded.leadership ?? empty.leadership,
+                leadership: Array.isArray(loaded.leadership) ? loaded.leadership : empty.leadership,
+                training: Array.isArray(loaded.training) ? loaded.training : empty.training,
+                publications: Array.isArray(loaded.publications) ? loaded.publications : empty.publications,
               });
             }
             if (data.template_id) {
@@ -207,12 +236,11 @@ export function useResumeBuilder(templateId: string | null) {
 
   const saveToDatabase = useCallback(
     async (title: string, currentTemplateId: string, dataToSave?: ResumeData) => {
+      const payload = dataToSave ?? resumeData;
       setIsSaving(true);
       try {
         const url = resumeId ? `/api/resumes/${resumeId}` : "/api/resumes";
         const method = resumeId ? "PATCH" : "POST";
-        const payload = dataToSave ?? resumeData;
-        
         const res = await fetch(url, {
           method,
           headers: { "Content-Type": "application/json" },
@@ -223,7 +251,6 @@ export function useResumeBuilder(templateId: string | null) {
             status: "published",
           }),
         });
-        
         if (!res.ok) throw new Error("Failed to save resume");
         return await res.json();
       } finally {

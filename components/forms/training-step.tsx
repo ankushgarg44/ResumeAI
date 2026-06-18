@@ -1,0 +1,191 @@
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Plus, Trash2, X } from "lucide-react";
+import { createEmptyTraining } from "@/hooks/use-resume-builder";
+import type { ResumeData } from "@/types";
+
+interface TrainingStepProps {
+  data: ResumeData;
+  onChange: (updater: (prev: ResumeData) => ResumeData) => void;
+}
+
+export function TrainingStep({ data, onChange }: TrainingStepProps) {
+  const addTraining = () => {
+    onChange((prev) => ({
+      ...prev,
+      training: [...prev.training, createEmptyTraining()],
+    }));
+  };
+
+  const removeTraining = (id: string) => {
+    onChange((prev) => ({
+      ...prev,
+      training: prev.training.filter((t) => t.id !== id),
+    }));
+  };
+
+  const updateField = (id: string, field: string, value: string) => {
+    onChange((prev) => ({
+      ...prev,
+      training: prev.training.map((t) =>
+        t.id === id ? { ...t, [field]: value } : t
+      ),
+    }));
+  };
+
+  const updateDescription = (id: string, index: number, value: string) => {
+    onChange((prev) => ({
+      ...prev,
+      training: prev.training.map((t) =>
+        t.id === id
+          ? { ...t, description: t.description.map((d, i) => (i === index ? value : d)) }
+          : t
+      ),
+    }));
+  };
+
+  const addDescriptionBullet = (id: string) => {
+    onChange((prev) => ({
+      ...prev,
+      training: prev.training.map((t) =>
+        t.id === id ? { ...t, description: [...t.description, ""] } : t
+      ),
+    }));
+  };
+
+  const removeDescriptionBullet = (id: string, index: number) => {
+    onChange((prev) => ({
+      ...prev,
+      training: prev.training.map((t) =>
+        t.id === id
+          ? { ...t, description: t.description.filter((_, i) => i !== index) }
+          : t
+      ),
+    }));
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-2xl font-bold mb-1">Training</h3>
+          <p className="text-muted-foreground">
+            Highlight relevant training, workshops, or bootcamps.
+          </p>
+        </div>
+        <Button variant="outline" onClick={addTraining} className="bg-background shrink-0">
+          <Plus className="w-4 h-4 mr-2" /> Add Training
+        </Button>
+      </div>
+
+      {data.training.length === 0 && (
+        <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg">
+          <p className="font-medium">No training added yet</p>
+          <p className="text-sm mt-1">Click &quot;Add Training&quot; to get started.</p>
+        </div>
+      )}
+
+      {data.training.map((item, index) => (
+        <Card key={item.id} className="p-6 border-border">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">
+              Training #{index + 1}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => removeTraining(item.id)}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="space-y-2">
+              <Label>Training Title</Label>
+              <Input
+                placeholder="AWS Certified Solutions Architect"
+                value={item.title}
+                onChange={(e) => updateField(item.id, "title", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Organization</Label>
+              <Input
+                placeholder="Amazon Web Services"
+                value={item.organization}
+                onChange={(e) => updateField(item.id, "organization", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Location</Label>
+              <Input
+                placeholder="Online"
+                value={item.location}
+                onChange={(e) => updateField(item.id, "location", e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Start Date</Label>
+                <Input
+                  type="month"
+                  value={item.startDate}
+                  onChange={(e) => updateField(item.id, "startDate", e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>End Date</Label>
+                <Input
+                  type="month"
+                  value={item.endDate}
+                  onChange={(e) => updateField(item.id, "endDate", e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Description</Label>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => addDescriptionBullet(item.id)}
+                className="h-7 text-xs text-primary"
+              >
+                <Plus className="w-3 h-3 mr-1" /> Add Bullet
+              </Button>
+            </div>
+            {item.description.map((desc, dIdx) => (
+              <div key={dIdx} className="flex items-start gap-2">
+                <span className="mt-2.5 text-muted-foreground text-sm">•</span>
+                <Input
+                  placeholder="What did you learn or accomplish?"
+                  value={desc}
+                  onChange={(e) => updateDescription(item.id, dIdx, e.target.value)}
+                  className="flex-1"
+                />
+                {item.description.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeDescriptionBullet(item.id, dIdx)}
+                    className="shrink-0 h-9 w-9 text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}

@@ -179,6 +179,25 @@ export interface ResumeLeadership {
   bullets: string[];
 }
 
+export interface ResumeTraining {
+  id: string;
+  title: string;
+  organization: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  description: string[];
+}
+
+export interface ResumePublication {
+  id: string;
+  title: string;
+  publisher: string;
+  publicationDate: string;
+  link: string;
+  description: string[];
+}
+
 export interface ResumeData {
   personalInfo: ResumePersonalInfo;
   education: ResumeEducation[];
@@ -187,6 +206,8 @@ export interface ResumeData {
   projects: ResumeProject[];
   technicalSkills: ResumeTechnicalSkills;
   leadership: ResumeLeadership[];
+  training: ResumeTraining[];
+  publications: ResumePublication[];
 }
 
 // ---------- Builder Steps ----------
@@ -198,6 +219,8 @@ export type BuilderStep =
   | "projects"
   | "technical-skills"
   | "leadership"
+  | "training"
+  | "publications"
   | "template";
 
 export interface BuilderState {
