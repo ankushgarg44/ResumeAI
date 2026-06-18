@@ -93,6 +93,7 @@ components/
     top-navbar.tsx
   resume-templates/
     ats-template.tsx
+    modern-two-column-template.tsx
   resumes/
     delete-button.tsx
   ui/
@@ -125,6 +126,9 @@ lib/
   template-configs.ts
   utils.ts
 public/
+  templates/
+    ats-professional.png
+    modern-two-column.png
   file.svg
   globe.svg
   next.svg
@@ -143,6 +147,7 @@ package.json
 postcss.config.mjs
 proxy.ts
 README.md
+resume_template_2.pdf
 resume_template_page1.png
 resume_template.pdf
 tsconfig.json
@@ -150,6 +155,22 @@ tsconfig.json
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="app/(auth)/sign-in/[[...sign-in]]/page.tsx">
+import { SignIn } from "@clerk/nextjs";
+
+export default function Page() {
+  return <SignIn />;
+}
+</file>
+
+<file path="app/(auth)/sign-up/[[...sign-up]]/page.tsx">
+import { SignUp } from "@clerk/nextjs";
+
+export default function Page() {
+  return <SignUp />;
+}
+</file>
 
 <file path="app/api/resumes/[id]/route.ts">
 import { NextRequest, NextResponse } from "next/server";
@@ -274,419 +295,6 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
-</file>
-
-<file path="components/resumes/delete-button.tsx">
-"use client";
-
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Trash2, Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
-
-export function DeleteResumeButton({ id }: { id: string }) {
-  const [isDeleting, setIsDeleting] = useState(false);
-  const router = useRouter();
-
-  const handleDelete = async () => {
-    if (!window.confirm("Are you sure you want to delete this resume?")) return;
-    
-    setIsDeleting(true);
-    try {
-      const res = await fetch(`/api/resumes/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete");
-      router.refresh();
-    } catch (error) {
-      console.error(error);
-      alert("Failed to delete resume");
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="text-destructive hover:bg-destructive/10 h-9 w-9"
-      onClick={(e) => {
-        e.preventDefault();
-        handleDelete();
-      }}
-      disabled={isDeleting}
-    >
-      {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-    </Button>
-  );
-}
-</file>
-
-<file path="lib/supabase/client.ts">
-import { createClient } from "@supabase/supabase-js";
-
-// Client for use in browser/client components. Uses the public anon key.
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-</file>
-
-<file path="lib/supabase/resumes.ts">
-import { serverSupabase } from "./server";
-import type { Resume, ResumeData } from "@/types";
-
-export async function getUserResumes(userId: string): Promise<Resume[]> {
-  const { data, error } = await serverSupabase
-    .from("resumes")
-    .select("*")
-    .eq("user_id", userId)
-    .order("updated_at", { ascending: false });
-
-  if (error) {
-    console.error("Error fetching resumes:", error);
-    throw new Error("Failed to fetch resumes");
-  }
-
-  // Cast the raw DB response to our Resume type
-  return data as unknown as Resume[];
-}
-
-export async function getResume(id: string, userId: string): Promise<Resume | null> {
-  const { data, error } = await serverSupabase
-    .from("resumes")
-    .select("*")
-    .eq("id", id)
-    .eq("user_id", userId)
-    .single();
-
-  if (error) {
-    if (error.code === "PGRST116") return null; // Not found
-    console.error("Error fetching resume:", error);
-    throw new Error("Failed to fetch resume");
-  }
-
-  return data as unknown as Resume;
-}
-
-export async function createResume(
-  userId: string,
-  templateId: string,
-  title: string
-): Promise<Resume> {
-  const { data, error } = await serverSupabase
-    .from("resumes")
-    .insert({
-      user_id: userId,
-      template_id: templateId,
-      title,
-      resume_data: {}, // Handled by default in DB, but good to be explicit
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Error creating resume:", error);
-    throw new Error("Failed to create resume");
-  }
-
-  return data as unknown as Resume;
-}
-
-export async function saveResume(
-  id: string,
-  userId: string,
-  resumeData: Partial<Resume>
-): Promise<Resume> {
-  // We only allow updating specific fields
-  const updates: any = {};
-  if (resumeData.title !== undefined) updates.title = resumeData.title;
-  if (resumeData.template_id !== undefined) updates.template_id = resumeData.template_id;
-  if (resumeData.resume_data !== undefined) updates.resume_data = resumeData.resume_data;
-  if (resumeData.status !== undefined) updates.status = resumeData.status;
-
-  const { data, error } = await serverSupabase
-    .from("resumes")
-    .update(updates)
-    .eq("id", id)
-    .eq("user_id", userId)
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Error saving resume:", error);
-    throw new Error("Failed to save resume");
-  }
-
-  return data as unknown as Resume;
-}
-
-export async function deleteResume(id: string, userId: string): Promise<void> {
-  const { error } = await serverSupabase
-    .from("resumes")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", userId);
-
-  if (error) {
-    console.error("Error deleting resume:", error);
-    throw new Error("Failed to delete resume");
-  }
-}
-
-export async function updateATSScore(
-  id: string,
-  userId: string,
-  score: number
-): Promise<void> {
-  const { error } = await serverSupabase
-    .from("resumes")
-    .update({ ats_score: score })
-    .eq("id", id)
-    .eq("user_id", userId);
-
-  if (error) {
-    console.error("Error updating ATS score:", error);
-    throw new Error("Failed to update ATS score");
-  }
-}
-</file>
-
-<file path="lib/supabase/server.ts">
-import { createClient } from "@supabase/supabase-js";
-import { Database } from "./types";
-
-// Server client for use in API routes and Server Components.
-// Uses the SERVICE ROLE KEY to bypass RLS, because we enforce security manually
-// by verifying the Clerk userId in our data access functions.
-export const serverSupabase = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-</file>
-
-<file path="lib/supabase/types.ts">
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[];
-
-export interface Database {
-  public: {
-    Tables: {
-      resumes: {
-        Row: {
-          id: string;
-          user_id: string;
-          title: string;
-          template_id: string;
-          resume_data: Json;
-          ats_score: number | null;
-          status: string;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          title?: string;
-          template_id?: string;
-          resume_data?: Json;
-          ats_score?: number | null;
-          status?: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          title?: string;
-          template_id?: string;
-          resume_data?: Json;
-          ats_score?: number | null;
-          status?: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
-    };
-    Views: {
-      [_ in never]: never;
-    };
-    Functions: {
-      [_ in never]: never;
-    };
-    Enums: {
-      [_ in never]: never;
-    };
-    CompositeTypes: {
-      [_ in never]: never;
-    };
-  };
-}
-</file>
-
-<file path="lib/template-configs.ts">
-import type { ResumePersonalInfo, BuilderStep } from "@/types";
-
-// All possible form section keys (excludes "template" which is always step 1)
-export type FormSectionKey = Exclude<BuilderStep, "template">;
-
-export interface TemplateConfig {
-  id: string;
-  name: string;
-  description: string;
-  badge: string;
-  badgeColor: { bg: string; text: string; border: string };
-  sections: FormSectionKey[];
-  personalInfoFields: (keyof ResumePersonalInfo)[];
-  requiredPersonalInfoFields: (keyof ResumePersonalInfo)[];
-}
-
-export interface StepInfo {
-  key: BuilderStep;
-  label: string;
-  number: number;
-}
-
-// Labels for each section key
-const SECTION_LABELS: Record<BuilderStep, string> = {
-  "template": "Template",
-  "personal-info": "Personal Info",
-  "education": "Education",
-  "coursework": "Coursework",
-  "experience": "Experience",
-  "projects": "Projects",
-  "technical-skills": "Skills",
-  "leadership": "Leadership",
-};
-
-// ─── Template Configs ────────────────────────────────────
-
-export const TEMPLATE_CONFIGS: Record<string, TemplateConfig> = {
-  "ats-professional": {
-    id: "ats-professional",
-    name: "ATS Professional",
-    description:
-      "Clean, structured layout optimized for Applicant Tracking Systems. Uses serif headings, clear section dividers, and professional formatting.",
-    badge: "ATS Friendly",
-    badgeColor: {
-      bg: "bg-emerald-100 dark:bg-emerald-950/30",
-      text: "text-emerald-700 dark:text-emerald-400",
-      border: "border-emerald-200 dark:border-emerald-800",
-    },
-    sections: [
-      "personal-info",
-      "education",
-      "coursework",
-      "experience",
-      "projects",
-      "technical-skills",
-      "leadership",
-    ],
-    personalInfoFields: ["fullName", "address", "phone", "email", "linkedIn", "github"],
-    requiredPersonalInfoFields: ["fullName", "email"],
-  },
-
-  "modern-technical": {
-    id: "modern-technical",
-    name: "Modern Technical",
-    description:
-      "Developer-focused template emphasizing skills, projects, and GitHub. Ideal for software engineers and technical roles.",
-    badge: "Developer",
-    badgeColor: {
-      bg: "bg-blue-100 dark:bg-blue-950/30",
-      text: "text-blue-700 dark:text-blue-400",
-      border: "border-blue-200 dark:border-blue-800",
-    },
-    sections: [
-      "personal-info",
-      "education",
-      "experience",
-      "projects",
-      "technical-skills",
-    ],
-    personalInfoFields: ["fullName", "address", "phone", "email", "linkedIn", "github"],
-    requiredPersonalInfoFields: ["fullName", "email", "github"],
-  },
-
-  "corporate-executive": {
-    id: "corporate-executive",
-    name: "Corporate Executive",
-    description:
-      "Experience-first template designed for business, management, and executive roles. Highlights leadership and career trajectory.",
-    badge: "Executive",
-    badgeColor: {
-      bg: "bg-amber-100 dark:bg-amber-950/30",
-      text: "text-amber-700 dark:text-amber-400",
-      border: "border-amber-200 dark:border-amber-800",
-    },
-    sections: [
-      "personal-info",
-      "education",
-      "experience",
-      "leadership",
-    ],
-    personalInfoFields: ["fullName", "address", "phone", "email", "linkedIn"],
-    requiredPersonalInfoFields: ["fullName", "email"],
-  },
-};
-
-// ─── Helpers ─────────────────────────────────────────────
-
-/** Get the ordered list of template IDs for rendering */
-export function getTemplateIds(): string[] {
-  return Object.keys(TEMPLATE_CONFIGS);
-}
-
-/** Get a template config by id, falls back to ats-professional */
-export function getTemplateConfig(templateId: string | null): TemplateConfig {
-  if (templateId && TEMPLATE_CONFIGS[templateId]) {
-    return TEMPLATE_CONFIGS[templateId];
-  }
-  return TEMPLATE_CONFIGS["ats-professional"];
-}
-
-/**
- * Build the full wizard step array for a given template.
- * Template selection is always step 1, then the template's sections follow.
- */
-export function getStepsForTemplate(templateId: string | null): StepInfo[] {
-  const config = getTemplateConfig(templateId);
-
-  const steps: StepInfo[] = [
-    { key: "template", label: "Template", number: 1 },
-  ];
-
-  config.sections.forEach((sectionKey, idx) => {
-    steps.push({
-      key: sectionKey,
-      label: SECTION_LABELS[sectionKey],
-      number: idx + 2, // starts at 2 since template is 1
-    });
-  });
-
-  return steps;
-}
-</file>
-
-<file path="app/(auth)/sign-in/[[...sign-in]]/page.tsx">
-import { SignIn } from "@clerk/nextjs";
-
-export default function Page() {
-  return <SignIn />;
-}
-</file>
-
-<file path="app/(auth)/sign-up/[[...sign-up]]/page.tsx">
-import { SignUp } from "@clerk/nextjs";
-
-export default function Page() {
-  return <SignUp />;
 }
 </file>
 
@@ -1389,93 +997,6 @@ export function LeadershipStep({ data, onChange }: LeadershipStepProps) {
 }
 </file>
 
-<file path="components/forms/personal-info-step.tsx">
-"use client";
-
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import type { ResumeData, ResumePersonalInfo } from "@/types";
-
-interface PersonalInfoStepProps {
-  data: ResumeData;
-  onChange: (updater: (prev: ResumeData) => ResumeData) => void;
-  visibleFields?: (keyof ResumePersonalInfo)[];
-  requiredFields?: (keyof ResumePersonalInfo)[];
-}
-
-// Default: show all fields
-const ALL_FIELDS: (keyof ResumePersonalInfo)[] = [
-  "fullName",
-  "address",
-  "phone",
-  "email",
-  "linkedIn",
-  "github",
-];
-
-interface FieldDef {
-  key: keyof ResumePersonalInfo;
-  label: string;
-  placeholder: string;
-  type?: string;
-}
-
-const FIELD_DEFS: FieldDef[] = [
-  { key: "fullName", label: "Full Name", placeholder: "John Doe" },
-  { key: "address", label: "Address", placeholder: "123 Street Name, Town, State 12345" },
-  { key: "phone", label: "Phone", placeholder: "123-456-7890", type: "tel" },
-  { key: "email", label: "Email", placeholder: "email@gmail.com", type: "email" },
-  { key: "linkedIn", label: "LinkedIn", placeholder: "linkedin.com/in/username" },
-  { key: "github", label: "GitHub", placeholder: "github.com/username" },
-];
-
-export function PersonalInfoStep({
-  data,
-  onChange,
-  visibleFields,
-  requiredFields,
-}: PersonalInfoStepProps) {
-  const fieldsToShow = visibleFields ?? ALL_FIELDS;
-  const required = new Set(requiredFields ?? []);
-
-  const update = (field: keyof ResumePersonalInfo, value: string) => {
-    onChange((prev) => ({
-      ...prev,
-      personalInfo: { ...prev.personalInfo, [field]: value },
-    }));
-  };
-
-  return (
-    <div className="space-y-8 animate-in fade-in duration-300">
-      <div>
-        <h3 className="text-2xl font-bold mb-1">Personal Information</h3>
-        <p className="text-muted-foreground">
-          Start with the basics. This is how employers will contact you.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {FIELD_DEFS.filter((f) => fieldsToShow.includes(f.key)).map((field) => (
-          <div key={field.key} className="space-y-2">
-            <Label htmlFor={field.key}>
-              {field.label}
-              {required.has(field.key) ? " *" : ""}
-            </Label>
-            <Input
-              id={field.key}
-              type={field.type}
-              placeholder={field.placeholder}
-              value={data.personalInfo[field.key]}
-              onChange={(e) => update(field.key, e.target.value)}
-            />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-</file>
-
 <file path="components/forms/projects-step.tsx">
 "use client";
 
@@ -1833,165 +1354,6 @@ export function TechnicalSkillsStep({ data, onChange }: TechnicalSkillsStepProps
             onRemove={(skill) => removeSkill(cat.key, skill)}
           />
         ))}
-      </div>
-    </div>
-  );
-}
-</file>
-
-<file path="components/forms/template-selection-step.tsx">
-"use client";
-
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { CheckCircle, FileText, GraduationCap, Briefcase, Code, Award, BookOpen, Wrench, Users } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { TEMPLATE_CONFIGS, getTemplateIds } from "@/lib/template-configs";
-import type { FormSectionKey } from "@/lib/template-configs";
-
-interface TemplateSelectionStepProps {
-  selectedTemplateId: string | null;
-  onSelect: (id: string) => void;
-}
-
-// Icons for each section key
-const SECTION_ICONS: Record<FormSectionKey, React.ReactNode> = {
-  "personal-info": <FileText className="w-3.5 h-3.5" />,
-  "education": <GraduationCap className="w-3.5 h-3.5" />,
-  "coursework": <BookOpen className="w-3.5 h-3.5" />,
-  "experience": <Briefcase className="w-3.5 h-3.5" />,
-  "projects": <Code className="w-3.5 h-3.5" />,
-  "technical-skills": <Wrench className="w-3.5 h-3.5" />,
-  "leadership": <Users className="w-3.5 h-3.5" />,
-};
-
-const SECTION_LABELS: Record<FormSectionKey, string> = {
-  "personal-info": "Personal Info",
-  "education": "Education",
-  "coursework": "Coursework",
-  "experience": "Experience",
-  "projects": "Projects",
-  "technical-skills": "Technical Skills",
-  "leadership": "Leadership",
-};
-
-// Skeleton section blocks for the mini preview — shows which sections a template includes
-function MiniSkeletonPreview({ sections }: { sections: FormSectionKey[] }) {
-  return (
-    <div className="space-y-2.5 h-full flex flex-col">
-      {/* Name header — always present */}
-      <div className="text-center space-y-1 pb-2 border-b border-gray-200">
-        <div className="h-4 w-2/5 bg-gray-800 rounded mx-auto" />
-        <div className="h-1.5 w-3/5 bg-gray-300 rounded mx-auto" />
-        <div className="h-1.5 w-4/5 bg-gray-300 rounded mx-auto" />
-      </div>
-
-      {sections
-        .filter((s) => s !== "personal-info")
-        .map((section) => (
-          <div key={section} className="space-y-1">
-            {/* Section heading + line */}
-            <div className="flex items-center gap-1.5">
-              <div className="h-2 w-14 bg-gray-700 rounded" />
-              <div className="flex-1 h-px bg-gray-300" />
-            </div>
-            {/* Content lines */}
-            <div className="pl-2 space-y-0.5">
-              <div className="h-1 w-full bg-gray-200 rounded" />
-              <div className="h-1 w-4/5 bg-gray-200 rounded" />
-            </div>
-          </div>
-        ))}
-    </div>
-  );
-}
-
-export function TemplateSelectionStep({
-  selectedTemplateId,
-  onSelect,
-}: TemplateSelectionStepProps) {
-  const templateIds = getTemplateIds();
-
-  return (
-    <div className="space-y-8 animate-in fade-in duration-300">
-      <div>
-        <h3 className="text-2xl font-bold mb-1">Choose a Template</h3>
-        <p className="text-muted-foreground">
-          Each template shows different sections tailored to the role you&apos;re targeting.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {templateIds.map((id) => {
-          const config = TEMPLATE_CONFIGS[id];
-          const isSelected = selectedTemplateId === id;
-
-          return (
-            <Card
-              key={id}
-              className={cn(
-                "cursor-pointer transition-all duration-200 overflow-hidden border-2 flex flex-col",
-                isSelected
-                  ? "border-primary shadow-lg shadow-primary/10 ring-2 ring-primary/20"
-                  : "border-border hover:border-primary/40 hover:shadow-md"
-              )}
-              onClick={() => onSelect(id)}
-            >
-              {/* Mini preview */}
-              <div className="aspect-[1/1.2] bg-white p-4 relative">
-                <MiniSkeletonPreview sections={config.sections} />
-
-                {isSelected && (
-                  <div className="absolute top-2 right-2">
-                    <div className="bg-primary text-primary-foreground rounded-full p-1">
-                      <CheckCircle className="w-4 h-4" />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Template info */}
-              <div className="p-4 bg-card border-t border-border flex-1 flex flex-col">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-semibold text-foreground text-sm">{config.name}</h4>
-                  <Badge
-                    className={cn(
-                      "text-[10px] px-1.5 py-0.5",
-                      config.badgeColor.bg,
-                      config.badgeColor.text,
-                      config.badgeColor.border
-                    )}
-                  >
-                    {config.badge}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground mb-3 flex-1">
-                  {config.description}
-                </p>
-
-                {/* Section preview list */}
-                <div className="space-y-1 pt-2 border-t border-border">
-                  <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground">
-                    Sections included
-                  </span>
-                  <div className="flex flex-wrap gap-1.5 mt-1">
-                    {config.sections
-                      .filter((s) => s !== "personal-info")
-                      .map((section) => (
-                        <span
-                          key={section}
-                          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md"
-                        >
-                          {SECTION_ICONS[section]}
-                          {SECTION_LABELS[section]}
-                        </span>
-                      ))}
-                  </div>
-                </div>
-              </div>
-            </Card>
-          );
-        })}
       </div>
     </div>
   );
@@ -2397,6 +1759,51 @@ function BulletList({ items }: { items: string[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+</file>
+
+<file path="components/resumes/delete-button.tsx">
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Trash2, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+
+export function DeleteResumeButton({ id }: { id: string }) {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const router = useRouter();
+
+  const handleDelete = async () => {
+    if (!window.confirm("Are you sure you want to delete this resume?")) return;
+    
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/resumes/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      alert("Failed to delete resume");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="text-destructive hover:bg-destructive/10 h-9 w-9"
+      onClick={(e) => {
+        e.preventDefault();
+        handleDelete();
+      }}
+      disabled={isDeleting}
+    >
+      {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+    </Button>
   );
 }
 </file>
@@ -3665,408 +3072,211 @@ export function usePdfGenerator(contentRef: RefObject<HTMLElement | null>) {
 }
 </file>
 
-<file path="hooks/use-resume-builder.ts">
-"use client";
+<file path="lib/supabase/client.ts">
+import { createClient } from "@supabase/supabase-js";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
-import type {
-  ResumeData,
-  ResumeEducation,
-  ResumeExperience,
-  ResumeProject,
-  ResumeLeadership,
-} from "@/types";
-import { getStepsForTemplate } from "@/lib/template-configs";
-import type { StepInfo } from "@/lib/template-configs";
+// Client for use in browser/client components. Uses the public anon key.
+export const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+</file>
 
-const STORAGE_KEY = "resumeai-draft";
+<file path="lib/supabase/resumes.ts">
+import { serverSupabase } from "./server";
+import type { Resume, ResumeData } from "@/types";
 
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 9);
+export async function getUserResumes(userId: string): Promise<Resume[]> {
+  const { data, error } = await serverSupabase
+    .from("resumes")
+    .select("*")
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching resumes:", error);
+    throw new Error("Failed to fetch resumes");
+  }
+
+  // Cast the raw DB response to our Resume type
+  return data as unknown as Resume[];
 }
 
-export function getEmptyResumeData(): ResumeData {
-  return {
-    personalInfo: {
-      fullName: "",
-      address: "",
-      phone: "",
-      email: "",
-      linkedIn: "",
-      github: "",
-    },
-    education: [],
-    coursework: [],
-    experience: [],
-    projects: [],
-    technicalSkills: {
-      languages: [],
-      developerTools: [],
-      frameworks: [],
-    },
-    leadership: [],
-  };
+export async function getResume(id: string, userId: string): Promise<Resume | null> {
+  const { data, error } = await serverSupabase
+    .from("resumes")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") return null; // Not found
+    console.error("Error fetching resume:", error);
+    throw new Error("Failed to fetch resume");
+  }
+
+  return data as unknown as Resume;
 }
 
-export function createEmptyEducation(): ResumeEducation {
-  return {
-    id: generateId(),
-    university: "",
-    degree: "",
-    location: "",
-    startDate: "",
-    endDate: "",
-    cgpa: "",
-  };
+export async function createResume(
+  userId: string,
+  templateId: string,
+  title: string
+): Promise<Resume> {
+  const { data, error } = await serverSupabase
+    .from("resumes")
+    .insert({
+      user_id: userId,
+      template_id: templateId,
+      title,
+      resume_data: {}, // Handled by default in DB, but good to be explicit
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating resume:", error);
+    throw new Error("Failed to create resume");
+  }
+
+  return data as unknown as Resume;
 }
 
-export function createEmptyExperience(): ResumeExperience {
-  return {
-    id: generateId(),
-    company: "",
-    role: "",
-    location: "",
-    startDate: "",
-    endDate: "",
-    bullets: [""],
-  };
+export async function saveResume(
+  id: string,
+  userId: string,
+  resumeData: Partial<Resume>
+): Promise<Resume> {
+  // We only allow updating specific fields
+  const updates: any = {};
+  if (resumeData.title !== undefined) updates.title = resumeData.title;
+  if (resumeData.template_id !== undefined) updates.template_id = resumeData.template_id;
+  if (resumeData.resume_data !== undefined) updates.resume_data = resumeData.resume_data;
+  if (resumeData.status !== undefined) updates.status = resumeData.status;
+
+  const { data, error } = await serverSupabase
+    .from("resumes")
+    .update(updates)
+    .eq("id", id)
+    .eq("user_id", userId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error saving resume:", error);
+    throw new Error("Failed to save resume");
+  }
+
+  return data as unknown as Resume;
 }
 
-export function createEmptyProject(): ResumeProject {
-  return {
-    id: generateId(),
-    title: "",
-    technologies: "",
-    date: "",
-    bullets: [""],
-  };
+export async function deleteResume(id: string, userId: string): Promise<void> {
+  const { error } = await serverSupabase
+    .from("resumes")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
+
+  if (error) {
+    console.error("Error deleting resume:", error);
+    throw new Error("Failed to delete resume");
+  }
 }
 
-export function createEmptyLeadership(): ResumeLeadership {
-  return {
-    id: generateId(),
-    organization: "",
-    role: "",
-    duration: "",
-    bullets: [""],
-  };
-}
+export async function updateATSScore(
+  id: string,
+  userId: string,
+  score: number
+): Promise<void> {
+  const { error } = await serverSupabase
+    .from("resumes")
+    .update({ ats_score: score })
+    .eq("id", id)
+    .eq("user_id", userId);
 
-export function useResumeBuilder(templateId: string | null) {
-  const searchParams = useSearchParams();
-  const resumeId = searchParams?.get("id");
-
-  const [resumeData, setResumeData] = useState<ResumeData>(getEmptyResumeData);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [hydrated, setHydrated] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isLoading, setIsLoading] = useState(!!resumeId);
-
-  // Derive steps dynamically from the selected template
-  const steps: StepInfo[] = useMemo(
-    () => getStepsForTemplate(templateId),
-    [templateId]
-  );
-
-  // Clamp currentStep when steps array changes (template switch)
-  useEffect(() => {
-    setCurrentStep((prev) => Math.min(prev, steps.length - 1));
-  }, [steps.length]);
-
-  // Load from API if ID is present, else restore from localStorage
-  useEffect(() => {
-    async function init() {
-      if (resumeId) {
-        try {
-          const res = await fetch(`/api/resumes/${resumeId}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.resume_data) {
-              // Ensure we merge with empty so no fields are completely missing
-              setResumeData((prev) => ({ ...getEmptyResumeData(), ...data.resume_data }));
-            }
-          }
-        } catch (error) {
-          console.error("Failed to load resume from API", error);
-        } finally {
-          setIsLoading(false);
-          setHydrated(true);
-        }
-      } else {
-        try {
-          const saved = localStorage.getItem(STORAGE_KEY);
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (parsed.resumeData) setResumeData(parsed.resumeData);
-            if (typeof parsed.currentStep === "number") setCurrentStep(parsed.currentStep);
-          }
-        } catch {
-          // ignore parse errors
-        }
-        setIsLoading(false);
-        setHydrated(true);
-      }
-    }
-    init();
-  }, [resumeId]);
-
-  // Auto-save to localStorage on changes
-  useEffect(() => {
-    if (!hydrated) return;
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ resumeData, currentStep, templateId })
-      );
-    } catch {
-      // ignore quota errors
-    }
-  }, [resumeData, currentStep, templateId, hydrated]);
-
-  const updateResumeData = useCallback(
-    (updater: (prev: ResumeData) => ResumeData) => {
-      setResumeData((prev) => updater(prev));
-    },
-    []
-  );
-
-  const nextStep = useCallback(() => {
-    setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
-  }, [steps.length]);
-
-  const prevStep = useCallback(() => {
-    setCurrentStep((prev) => Math.max(prev - 1, 0));
-  }, []);
-
-  const goToStep = useCallback(
-    (step: number) => {
-      setCurrentStep(Math.max(0, Math.min(step, steps.length - 1)));
-    },
-    [steps.length]
-  );
-
-  const resetBuilder = useCallback(() => {
-    setResumeData(getEmptyResumeData());
-    setCurrentStep(0);
-    localStorage.removeItem(STORAGE_KEY);
-  }, []);
-
-  const saveToDatabase = useCallback(
-    async (title: string, currentTemplateId: string) => {
-      setIsSaving(true);
-      try {
-        const url = resumeId ? `/api/resumes/${resumeId}` : "/api/resumes";
-        const method = resumeId ? "PATCH" : "POST";
-        
-        const res = await fetch(url, {
-          method,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title,
-            template_id: currentTemplateId,
-            resume_data: resumeData,
-            status: "published",
-          }),
-        });
-        
-        if (!res.ok) throw new Error("Failed to save resume");
-        return await res.json();
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [resumeData, resumeId]
-  );
-
-  return {
-    resumeData,
-    currentStep,
-    hydrated,
-    steps,
-    updateResumeData,
-    nextStep,
-    prevStep,
-    goToStep,
-    resetBuilder,
-    saveToDatabase,
-    isSaving,
-    isLoading,
-    totalSteps: steps.length,
-    currentStepInfo: steps[currentStep] ?? steps[0],
-    isFirstStep: currentStep === 0,
-    isLastStep: currentStep === steps.length - 1,
-  };
+  if (error) {
+    console.error("Error updating ATS score:", error);
+    throw new Error("Failed to update ATS score");
+  }
 }
 </file>
 
-<file path="lib/api.ts">
-// ==========================================
-// ResumeAI — Placeholder API Functions
-// Ready for OpenAI, Clerk, and PDF export integration
-// ==========================================
+<file path="lib/supabase/server.ts">
+import { createClient } from "@supabase/supabase-js";
+import { Database } from "./types";
 
-import type { Resume, ATSAnalysis, ResumeData } from "@/types";
+// Server client for use in API routes and Server Components.
+// Uses the SERVICE ROLE KEY to bypass RLS, because we enforce security manually
+// by verifying the Clerk userId in our data access functions.
+export const serverSupabase = createClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+</file>
 
-/**
- * Generate resume content from free-form text using AI.
- * @placeholder Ready for OpenAI integration
- */
-export async function generateResumeContent(
-  freeText: string
-): Promise<Partial<ResumeData>> {
-  // TODO: Integrate with OpenAI API
-  // const response = await openai.chat.completions.create({
-  //   model: "gpt-4",
-  //   messages: [{ role: "user", content: `Parse this into resume sections: ${freeText}` }],
-  // });
-  console.log("[API] generateResumeContent called with:", freeText.slice(0, 50));
+<file path="lib/supabase/types.ts">
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
 
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        personalInfo: {
-          fullName: "Generated Name",
-          email: "user@example.com",
-          phone: "+1 (555) 000-0000",
-          address: "San Francisco, CA",
-          linkedIn: "",
-          github: "",
-        },
-      });
-    }, 1500);
-  });
-}
-
-/**
- * Analyze a resume against ATS criteria.
- * @placeholder Ready for OpenAI integration
- */
-export async function analyzeATS(resume: Resume): Promise<ATSAnalysis> {
-  // TODO: Integrate with OpenAI API for ATS analysis
-  console.log("[API] analyzeATS called for resume:", resume.id);
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        overallScore: 84,
-        matchedSkills: [
-          "React",
-          "Node.js",
-          "PostgreSQL",
-          "Microservices",
-          "Docker",
-        ],
-        missingKeywords: ["TypeScript", "Jest", "GraphQL"],
-        suggestions: [
-          {
-            id: "sug-1",
-            icon: "edit_note",
-            text: "Add specific metrics to demonstrate impact.",
-            type: "improvement",
-          },
-          {
-            id: "sug-2",
-            icon: "swap_vert",
-            text: "Reorder sections to prioritize relevant experience.",
-            type: "tip",
-          },
-        ],
-      });
-    }, 2000);
-  });
-}
-
-/**
- * Optimize resume for a specific job description.
- * @placeholder Ready for OpenAI integration
- */
-export async function optimizeForJob(
-  resume: Resume,
-  jobDescription: string
-): Promise<ATSAnalysis> {
-  // TODO: Integrate with OpenAI API
-  console.log(
-    "[API] optimizeForJob called for:",
-    resume.id,
-    "job:",
-    jobDescription.slice(0, 50)
-  );
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        overallScore: 91,
-        matchedSkills: [
-          "React",
-          "TypeScript",
-          "Node.js",
-          "Docker",
-          "Kubernetes",
-        ],
-        missingKeywords: ["GraphQL", "Terraform"],
-        suggestions: [
-          {
-            id: "sug-1",
-            icon: "lightbulb",
-            text: "Your resume is well-optimized for this role.",
-            type: "tip",
-          },
-        ],
-      });
-    }, 2500);
-  });
-}
-
-/**
- * Export resume to PDF.
- * @placeholder Ready for PDF export integration (e.g., react-pdf, puppeteer)
- */
-export async function exportToPDF(resume: Resume): Promise<Blob> {
-  // TODO: Integrate with PDF generation library
-  console.log("[API] exportToPDF called for resume:", resume.id);
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // Return a mock blob
-      resolve(new Blob(["PDF content placeholder"], { type: "application/pdf" }));
-    }, 1000);
-  });
-}
-
-/**
- * Save resume to backend.
- * @placeholder Ready for database integration
- */
-export async function saveResume(
-  resume: Partial<Resume>
-): Promise<{ id: string; success: boolean }> {
-  console.log("[API] saveResume called:", resume.title);
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        id: resume.id || `res-${Date.now()}`,
-        success: true,
-      });
-    }, 500);
-  });
-}
-
-/**
- * Delete a resume.
- * @placeholder Ready for database integration
- */
-export async function deleteResume(
-  resumeId: string
-): Promise<{ success: boolean }> {
-  console.log("[API] deleteResume called:", resumeId);
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ success: true });
-    }, 300);
-  });
+export interface Database {
+  public: {
+    Tables: {
+      resumes: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          template_id: string;
+          resume_data: Json;
+          ats_score: number | null;
+          status: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title?: string;
+          template_id?: string;
+          resume_data?: Json;
+          ats_score?: number | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          title?: string;
+          template_id?: string;
+          resume_data?: Json;
+          ats_score?: number | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      [_ in never]: never;
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
 }
 </file>
 
@@ -4109,34 +3319,6 @@ export const EMPTY_TEMPLATES = [];
 
 <file path="public/window.svg">
 <svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
-</file>
-
-<file path=".env.example">
-# ResumeAI — Environment Variables Example
-# Duplicate this file to .env.local and populate with your credentials.
-
-# -----------------------------------------------------------------------------
-# Clerk Authentication
-# Sign up at https://clerk.com to obtain these keys
-# -----------------------------------------------------------------------------
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your-clerk-publishable-key-here
-CLERK_SECRET_KEY=your-clerk-secret-key-here
-NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
-NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
-
-# -----------------------------------------------------------------------------
-# OpenAI API
-# Sign up at https://platform.openai.com to obtain your API key
-# -----------------------------------------------------------------------------
-OPENAI_API_KEY=your-openai-api-key-here
-
-# -----------------------------------------------------------------------------
-# Supabase
-# Sign up at https://supabase.com to obtain your API keys
-# -----------------------------------------------------------------------------
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 </file>
 
 <file path="AGENTS.md">
@@ -4562,604 +3744,6 @@ export default function ATSScorePage() {
 }
 </file>
 
-<file path="app/(dashboard)/builder/page.tsx">
-"use client";
-
-import { useState, useRef, useCallback, Suspense } from "react";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-import { useResumeBuilder } from "@/hooks/use-resume-builder";
-import { usePdfGenerator } from "@/hooks/use-pdf-generator";
-import { getTemplateConfig } from "@/lib/template-configs";
-
-import { PersonalInfoStep } from "@/components/forms/personal-info-step";
-import { EducationStep } from "@/components/forms/education-step";
-import { CourseworkStep } from "@/components/forms/coursework-step";
-import { ExperienceStep } from "@/components/forms/experience-step";
-import { ProjectsStep } from "@/components/forms/projects-step";
-import { TechnicalSkillsStep } from "@/components/forms/technical-skills-step";
-import { LeadershipStep } from "@/components/forms/leadership-step";
-import { TemplateSelectionStep } from "@/components/forms/template-selection-step";
-import { GeneratingScreen } from "@/components/forms/generating-screen";
-import { SuccessScreen } from "@/components/forms/success-screen";
-import { ATSTemplate } from "@/components/resume-templates/ats-template";
-
-type BuilderPhase = "editing" | "generating" | "success";
-
-function BuilderContent() {
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
-    "ats-professional"
-  );
-
-  const builder = useResumeBuilder(selectedTemplateId);
-  const templateRef = useRef<HTMLDivElement>(null);
-  const { generatePDF } = usePdfGenerator(templateRef);
-
-  const [phase, setPhase] = useState<BuilderPhase>("editing");
-
-  const templateConfig = getTemplateConfig(selectedTemplateId);
-
-  const progress =
-    ((builder.currentStep + 1) / builder.totalSteps) * 100;
-
-  const handleGenerate = useCallback(async () => {
-    try {
-      const title = builder.resumeData.personalInfo.fullName 
-        ? `${builder.resumeData.personalInfo.fullName} Resume`
-        : "Untitled Resume";
-      
-      await builder.saveToDatabase(
-        title,
-        selectedTemplateId || "ats-professional"
-      );
-    } catch (error) {
-      console.error("Failed to save resume:", error);
-      // We still proceed to generating so the user can download their PDF even if DB save fails
-    }
-    setPhase("generating");
-  }, [builder, selectedTemplateId]);
-
-  const handleGenerateComplete = useCallback(async () => {
-    await generatePDF();
-    setPhase("success");
-  }, [generatePDF]);
-
-  const handleDownloadAgain = useCallback(async () => {
-    await generatePDF();
-  }, [generatePDF]);
-
-  const handleCreateAnother = useCallback(() => {
-    builder.resetBuilder();
-    setPhase("editing");
-    setSelectedTemplateId("ats-professional");
-  }, [builder]);
-
-  const handleTemplateSelect = useCallback(
-    (id: string) => {
-      setSelectedTemplateId(id);
-      // If user is on step 0 (template selection), stay there.
-      // If they switched mid-way, clamp step to step 1 (first form step)
-      // so they review their data in the new step order.
-      if (builder.currentStep > 0) {
-        builder.goToStep(1);
-      }
-    },
-    [builder]
-  );
-
-  // Don't render until localStorage has been hydrated and API fetch is complete
-  if (!builder.hydrated || builder.isLoading) {
-    return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
-
-  // Render the step component for a given step key
-  const renderStep = () => {
-    const key = builder.currentStepInfo.key;
-
-    switch (key) {
-      case "template":
-        return (
-          <TemplateSelectionStep
-            selectedTemplateId={selectedTemplateId}
-            onSelect={handleTemplateSelect}
-          />
-        );
-      case "personal-info":
-        return (
-          <PersonalInfoStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-            visibleFields={templateConfig.personalInfoFields}
-            requiredFields={templateConfig.requiredPersonalInfoFields}
-          />
-        );
-      case "education":
-        return (
-          <EducationStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "coursework":
-        return (
-          <CourseworkStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "experience":
-        return (
-          <ExperienceStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "projects":
-        return (
-          <ProjectsStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "technical-skills":
-        return (
-          <TechnicalSkillsStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "leadership":
-        return (
-          <LeadershipStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div className="flex flex-col min-h-[calc(100vh-80px)] -m-4 md:-m-6">
-      {/* Hidden template for PDF generation */}
-      <div
-        style={{
-          position: "absolute",
-          left: "-9999px",
-          top: 0,
-        }}
-        aria-hidden="true"
-      >
-        <ATSTemplate ref={templateRef} data={builder.resumeData} />
-      </div>
-
-      {/* Phase: Generating */}
-      {phase === "generating" && (
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg">
-            <GeneratingScreen onComplete={handleGenerateComplete} />
-          </div>
-        </div>
-      )}
-
-      {/* Phase: Success */}
-      {phase === "success" && (
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg">
-            <SuccessScreen
-              onDownloadAgain={handleDownloadAgain}
-              onCreateAnother={handleCreateAnother}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Phase: Editing (wizard) */}
-      {phase === "editing" && (
-        <>
-          {/* Top Progress Bar */}
-          <div className="bg-card border-b border-border p-4 shrink-0 shadow-sm z-10">
-            <div className="max-w-3xl mx-auto">
-              {/* Step indicators */}
-              <div className="hidden sm:flex justify-between mb-3">
-                {builder.steps.map((step, idx) => (
-                  <button
-                    key={step.key}
-                    onClick={() => builder.goToStep(idx)}
-                    className={cn(
-                      "flex items-center gap-1.5 text-xs font-medium transition-colors cursor-pointer",
-                      idx <= builder.currentStep
-                        ? "text-primary"
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors",
-                        idx < builder.currentStep
-                          ? "bg-primary border-primary text-primary-foreground"
-                          : idx === builder.currentStep
-                            ? "border-primary text-primary"
-                            : "border-muted text-muted-foreground"
-                      )}
-                    >
-                      {idx < builder.currentStep ? "✓" : step.number}
-                    </span>
-                    <span className="hidden lg:inline">{step.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Mobile step label */}
-              <div className="sm:hidden text-sm font-medium text-muted-foreground mb-2">
-                Step {builder.currentStep + 1} of {builder.totalSteps}:{" "}
-                <span className="text-foreground">
-                  {builder.currentStepInfo.label}
-                </span>
-              </div>
-
-              <Progress value={progress} className="h-2 bg-muted" />
-            </div>
-          </div>
-
-          {/* Main content area */}
-          <div className="flex-1 overflow-y-auto p-4 md:p-6">
-            <div className="max-w-3xl mx-auto">
-              {/* Step content */}
-              {renderStep()}
-
-              {/* Navigation buttons */}
-              <div className="flex items-center justify-between mt-10 pb-6">
-                <Button
-                  variant="outline"
-                  onClick={builder.prevStep}
-                  disabled={builder.isFirstStep}
-                  className="bg-background"
-                >
-                  <ChevronLeft className="w-4 h-4 mr-2" />
-                  Back
-                </Button>
-
-                {builder.isLastStep ? (
-                  <Button
-                    onClick={handleGenerate}
-                    className="bg-primary text-primary-foreground shadow-sm"
-                    disabled={!selectedTemplateId}
-                  >
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Generate Resume
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={builder.nextStep}
-                    className="bg-primary text-primary-foreground"
-                  >
-                    Next Step
-                    <ChevronRight className="w-4 h-4 ml-2" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-export default function BuilderPage() {
-  return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center h-[60vh]">
-        <div className="animate-pulse text-muted-foreground">Loading Builder...</div>
-      </div>
-    }>
-      <BuilderContent />
-    </Suspense>
-  );
-}
-</file>
-
-<file path="app/(dashboard)/dashboard/page.tsx">
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { FileText, Download, TrendingUp, CheckCircle, Clock } from "lucide-react";
-import { currentUser } from "@clerk/nextjs/server";
-import { EmptyState } from "@/components/ui/empty-state";
-import Link from "next/link";
-import { getUserResumes } from "@/lib/supabase/resumes";
-
-export default async function DashboardPage() {
-  const user = await currentUser();
-  const firstName = user?.firstName || "User";
-  const userId = user?.id;
-
-  if (!userId) {
-    return <div>Not signed in</div>;
-  }
-
-  // Fetch real resumes
-  const allResumes = await getUserResumes(userId);
-  const recentResumes = allResumes.slice(0, 3); // top 3 for dashboard
-
-  // Calculate actual stats
-  const totalResumes = allResumes.length;
-  
-  // Calculate avg ATS score only for resumes that have one
-  const scoredResumes = allResumes.filter(r => r.ats_score !== null);
-  const atsScoreAvg = scoredResumes.length > 0
-    ? Math.round(scoredResumes.reduce((acc, r) => acc + (r.ats_score || 0), 0) / scoredResumes.length)
-    : null;
-
-  // Count resumes that have a good ATS score (e.g., > 70) as "Job Optimized"
-  const jobOptimized = scoredResumes.filter(r => (r.ats_score || 0) >= 70).length;
-
-  return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Welcome Header */}
-      <div>
-        <h2 className="text-3xl font-heading font-bold text-foreground">
-          Welcome back, {firstName} 👋
-        </h2>
-        <p className="text-muted-foreground mt-1">
-          Here&apos;s what&apos;s happening with your job search today.
-        </p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-6 border-border shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-primary/10 text-primary rounded-lg">
-              <FileText className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Total Resumes</p>
-              <p className="text-2xl font-bold text-foreground">{totalResumes}</p>
-            </div>
-          </div>
-        </Card>
-        
-        <Card className="p-6 border-border shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-emerald-100 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-lg">
-              <TrendingUp className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">ATS Score Avg</p>
-              <p className="text-2xl font-bold text-foreground">
-                {atsScoreAvg !== null ? atsScoreAvg : "--"}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6 border-border shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-amber-100 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 rounded-lg">
-              <CheckCircle className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Job Optimized</p>
-              <p className="text-2xl font-bold text-foreground">{jobOptimized}</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6 border-border shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-100 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 rounded-lg">
-              <Download className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Downloads</p>
-              <p className="text-2xl font-bold text-foreground">0</p>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Recent Resumes */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold text-foreground">Recent Resumes</h3>
-          {allResumes.length > 0 && (
-            <Link href="/resumes" className="text-sm text-primary font-medium hover:underline">
-              View all
-            </Link>
-          )}
-        </div>
-
-        {recentResumes.length === 0 ? (
-          <EmptyState
-            title="No resumes yet"
-            description="Create your first AI-powered resume to get started."
-            icon={<FileText className="w-8 h-8" />}
-            action={
-              <Link href="/builder">
-                <Button className="bg-primary text-primary-foreground shadow-sm">
-                  Create Resume
-                </Button>
-              </Link>
-            }
-          />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {recentResumes.map((resume) => (
-              <Card key={resume.id} className="flex flex-col border-border shadow-sm hover:border-primary/50 transition-colors overflow-hidden group">
-                {/* Visual Header */}
-                <div className="h-32 bg-muted relative border-b border-border p-4 flex flex-col justify-end">
-                  <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary via-transparent to-transparent"></div>
-                  <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] bg-center opacity-5"></div>
-                  <div className="relative z-10 flex items-center justify-between">
-                    <span className="px-2 py-1 bg-background/80 backdrop-blur-sm text-xs font-medium rounded text-muted-foreground border border-border shadow-sm">
-                      {resume.template_id}
-                    </span>
-                    <span className="px-2 py-1 bg-background/80 backdrop-blur-sm text-xs font-medium rounded text-muted-foreground border border-border shadow-sm uppercase tracking-wider">
-                      {resume.status}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="p-5 flex-1 flex flex-col">
-                  <h4 className="font-semibold text-foreground text-lg mb-1 line-clamp-1 group-hover:text-primary transition-colors">
-                    {resume.title}
-                  </h4>
-                  <div className="flex items-center text-xs text-muted-foreground mb-4">
-                    <Clock className="w-3 h-3 mr-1" />
-                    Updated {new Date(resume.updated_at).toLocaleDateString()}
-                  </div>
-                  
-                  <div className="mt-auto pt-4 border-t border-border flex items-center gap-2">
-                    <Link href={`/builder?id=${resume.id}`} className="flex-1">
-                      <Button variant="outline" className="w-full bg-background hover:bg-muted text-sm shadow-sm h-9">
-                        Edit
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-</file>
-
-<file path="app/(dashboard)/resumes/page.tsx">
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Search, Filter, Clock } from "lucide-react";
-import { EmptyState } from "@/components/ui/empty-state";
-import Link from "next/link";
-import { currentUser } from "@clerk/nextjs/server";
-import { getUserResumes } from "@/lib/supabase/resumes";
-import { Card } from "@/components/ui/card";
-import { DeleteResumeButton } from "@/components/resumes/delete-button";
-
-export default async function ResumesPage() {
-  const user = await currentUser();
-  const userId = user?.id;
-
-  if (!userId) {
-    return <div>Not signed in</div>;
-  }
-
-  const allResumes = await getUserResumes(userId);
-
-  return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-10">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">My Resumes</h2>
-          <p className="text-muted-foreground mt-1">
-            Manage your resumes, drafts, and optimized variants.
-          </p>
-        </div>
-        <Link href="/builder">
-          <Button className="bg-primary text-primary-foreground shadow-sm">
-            Create New Resume
-          </Button>
-        </Link>
-      </div>
-
-      {/* Filters and Search */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-card p-4 rounded-lg border border-border shadow-sm">
-        <div className="w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0 hide-scrollbar">
-          <Tabs defaultValue="all" className="w-full sm:w-auto">
-            <TabsList>
-              <TabsTrigger value="all">All Resumes</TabsTrigger>
-              <TabsTrigger value="published">Published</TabsTrigger>
-              <TabsTrigger value="drafts">Drafts</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-        
-        <div className="flex w-full sm:w-auto gap-2">
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search resumes..."
-              className="w-full pl-9 bg-background"
-              // TODO: Implement client-side filtering later
-            />
-          </div>
-          <Button variant="outline" size="icon" className="shrink-0 bg-background">
-            <Filter className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Resumes Content */}
-      {allResumes.length === 0 ? (
-        <EmptyState
-          title="No resumes yet"
-          description="Create your first AI-powered resume to get started."
-          icon={<FileText className="w-8 h-8" />}
-          action={
-            <Link href="/builder">
-              <Button className="bg-primary text-primary-foreground shadow-sm">
-                Create Resume
-              </Button>
-            </Link>
-          }
-        />
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {allResumes.map((resume) => (
-            <Card key={resume.id} className="flex flex-col border-border shadow-sm hover:border-primary/50 transition-colors overflow-hidden group">
-              <div className="h-32 bg-muted relative border-b border-border p-4 flex flex-col justify-end">
-                <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary via-transparent to-transparent"></div>
-                <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] bg-center opacity-5"></div>
-                <div className="relative z-10 flex items-center justify-between">
-                  <span className="px-2 py-1 bg-background/80 backdrop-blur-sm text-xs font-medium rounded text-muted-foreground border border-border shadow-sm">
-                    {resume.template_id}
-                  </span>
-                  <span className="px-2 py-1 bg-background/80 backdrop-blur-sm text-xs font-medium rounded text-muted-foreground border border-border shadow-sm uppercase tracking-wider">
-                    {resume.status}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-5 flex-1 flex flex-col">
-                <h4 className="font-semibold text-foreground text-lg mb-1 line-clamp-1 group-hover:text-primary transition-colors">
-                  {resume.title}
-                </h4>
-                <div className="flex items-center text-xs text-muted-foreground mb-4">
-                  <Clock className="w-3 h-3 mr-1" />
-                  Updated {new Date(resume.updated_at).toLocaleDateString()}
-                </div>
-                
-                <div className="mt-auto pt-4 border-t border-border flex items-center gap-2">
-                  <Link href={`/builder?id=${resume.id}`} className="flex-1">
-                    <Button variant="outline" className="w-full bg-background hover:bg-muted text-sm shadow-sm h-9">
-                      Edit
-                    </Button>
-                  </Link>
-                  <DeleteResumeButton id={resume.id} />
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-</file>
-
 <file path="app/(dashboard)/settings/page.tsx">
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -5295,37 +3879,6 @@ export default async function SettingsPage() {
 }
 </file>
 
-<file path="app/(dashboard)/templates/page.tsx">
-import { EMPTY_TEMPLATES } from "@/lib/placeholders";
-import { LayoutTemplate } from "lucide-react";
-import { EmptyState } from "@/components/ui/empty-state";
-
-export default function TemplatesPage() {
-  return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-10">
-      <div>
-        <h2 className="text-2xl font-bold text-foreground">Resume Templates</h2>
-        <p className="text-muted-foreground mt-1">
-          Choose from our selection of ATS-optimized designs.
-        </p>
-      </div>
-
-      {EMPTY_TEMPLATES.length === 0 ? (
-        <EmptyState
-          title="No templates available"
-          description="Templates will appear here once they are loaded from the backend."
-          icon={<LayoutTemplate className="w-8 h-8" />}
-        />
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-6">
-          {/* Template cards would be rendered here if available */}
-        </div>
-      )}
-    </div>
-  );
-}
-</file>
-
 <file path="app/(dashboard)/layout.tsx">
 import { SideNavbar } from "@/components/layout/side-navbar";
 import { TopAppBar } from "@/components/layout/top-app-bar";
@@ -5391,6 +3944,540 @@ export function AuthButtons() {
 }
 </file>
 
+<file path="components/forms/personal-info-step.tsx">
+"use client";
+
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import type { ResumeData, ResumePersonalInfo } from "@/types";
+
+interface PersonalInfoStepProps {
+  data: ResumeData;
+  onChange: (updater: (prev: ResumeData) => ResumeData) => void;
+  visibleFields?: (keyof ResumePersonalInfo)[];
+  requiredFields?: (keyof ResumePersonalInfo)[];
+}
+
+// Default: show all fields
+const ALL_FIELDS: (keyof ResumePersonalInfo)[] = [
+  "fullName",
+  "address",
+  "phone",
+  "email",
+  "linkedIn",
+  "github",
+];
+
+interface FieldDef {
+  key: keyof ResumePersonalInfo;
+  label: string;
+  placeholder: string;
+  type?: string;
+}
+
+const FIELD_DEFS: FieldDef[] = [
+  { key: "fullName", label: "Full Name", placeholder: "John Doe" },
+  { key: "address", label: "Address", placeholder: "123 Street Name, Town, State 12345" },
+  { key: "phone", label: "Phone", placeholder: "123-456-7890", type: "tel" },
+  { key: "email", label: "Email", placeholder: "email@gmail.com", type: "email" },
+  { key: "linkedIn", label: "LinkedIn", placeholder: "linkedin.com/in/username" },
+  { key: "github", label: "GitHub", placeholder: "github.com/username" },
+];
+
+export function PersonalInfoStep({
+  data,
+  onChange,
+  visibleFields,
+  requiredFields,
+}: PersonalInfoStepProps) {
+  const fieldsToShow = visibleFields ?? ALL_FIELDS;
+  const required = new Set(requiredFields ?? []);
+
+  const update = (field: keyof ResumePersonalInfo, value: string) => {
+    onChange((prev) => ({
+      ...prev,
+      personalInfo: { ...prev.personalInfo, [field]: value },
+    }));
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      <div>
+        <h3 className="text-2xl font-bold mb-1">Personal Information</h3>
+        <p className="text-muted-foreground">
+          Start with the basics. This is how employers will contact you.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {FIELD_DEFS.filter((f) => fieldsToShow.includes(f.key)).map((field) => (
+          <div key={field.key} className="space-y-2">
+            <Label htmlFor={field.key}>
+              {field.label}
+              {required.has(field.key) ? " *" : ""}
+            </Label>
+            <Input
+              id={field.key}
+              type={field.type}
+              placeholder={field.placeholder}
+              value={data.personalInfo[field.key]}
+              onChange={(e) => update(field.key, e.target.value)}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="components/resume-templates/modern-two-column-template.tsx">
+import { forwardRef } from "react";
+import type { ResumeData } from "@/types";
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return "";
+  const [year, month] = dateStr.split("-");
+  if (!year || !month) return dateStr;
+  const months = [
+    "Jan.", "Feb.", "Mar.", "Apr.", "May", "June",
+    "July", "Aug.", "Sep.", "Oct.", "Nov.", "Dec."
+  ];
+  return `${months[parseInt(month, 10) - 1]} ${year}`;
+}
+
+export const ModernTwoColumnTemplate = forwardRef<HTMLDivElement, { data: ResumeData }>(
+  function ModernTwoColumnTemplate({ data }, ref) {
+    const {
+      personalInfo,
+      education,
+      coursework,
+      experience,
+      projects,
+      technicalSkills,
+    } = data;
+
+    // Contact string parts
+    const contactParts = [];
+    if (personalInfo?.email) contactParts.push(personalInfo.email);
+    if (personalInfo?.phone) contactParts.push(personalInfo.phone);
+    if (personalInfo?.address) contactParts.push(personalInfo.address);
+    const contactString = contactParts.join(" | ");
+
+    return (
+      <div
+        ref={ref}
+        style={{
+          width: "210mm",
+          minHeight: "297mm",
+          boxSizing: "border-box",
+          background: "#fff",
+          padding: "40px",
+          fontFamily: "Helvetica, Arial, sans-serif",
+          color: "#333",
+          fontSize: "12px",
+          lineHeight: 1.5,
+        }}
+      >
+        {/* Header */}
+        <div style={{ textAlign: "center", marginBottom: "20px" }}>
+          <h1
+            style={{
+              fontSize: "46px",
+              fontWeight: 300,
+              margin: "0 0 10px 0",
+              color: "#111",
+            }}
+          >
+            {personalInfo?.fullName || "Your Name"}
+          </h1>
+          {contactString && (
+            <div style={{ fontSize: "13px", color: "#666" }}>
+              {contactString}
+            </div>
+          )}
+        </div>
+
+        <div style={{ borderBottom: "1px solid #ccc", marginBottom: "20px" }} />
+
+        {/* Two-Column Layout */}
+        <div style={{ display: "flex", gap: "30px" }}>
+          {/* Left Column */}
+          <div style={{ flex: "0 0 32%" }}>
+            {education && education.length > 0 && (
+              <div style={{ marginBottom: "25px" }}>
+                <h2
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 300,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    color: "#888",
+                    margin: "0 0 10px 0",
+                  }}
+                >
+                  Education
+                </h2>
+                {education.map((edu) => (
+                  <div key={edu.id} style={{ marginBottom: "15px" }}>
+                    <div style={{ fontWeight: 600, fontSize: "14px", color: "#111", textTransform: "uppercase" }}>
+                      {edu.university}
+                    </div>
+                    <div style={{ fontWeight: 600, marginTop: "2px" }}>
+                      {edu.degree}
+                    </div>
+                    <div style={{ color: "#666", marginTop: "2px" }}>
+                      {edu.endDate && `Grad. ${formatDate(edu.endDate)} `}
+                      {edu.location && `| ${edu.location}`}
+                    </div>
+                    {edu.cgpa && (
+                      <div style={{ color: "#666", marginTop: "2px" }}>
+                        Cum. GPA: {edu.cgpa}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {(personalInfo?.linkedIn || personalInfo?.github) && (
+              <div style={{ marginBottom: "25px" }}>
+                <h2
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 300,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    color: "#888",
+                    margin: "0 0 10px 0",
+                  }}
+                >
+                  Links
+                </h2>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  {personalInfo.linkedIn && (
+                    <div>
+                      <span style={{ color: "#888" }}>LinkedIn://</span> {personalInfo.linkedIn}
+                    </div>
+                  )}
+                  {personalInfo.github && (
+                    <div>
+                      <span style={{ color: "#888" }}>GitHub://</span> {personalInfo.github}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {coursework && coursework.length > 0 && (
+              <div style={{ marginBottom: "25px" }}>
+                <h2
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 300,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    color: "#888",
+                    margin: "0 0 10px 0",
+                  }}
+                >
+                  Coursework
+                </h2>
+                <ul style={{ margin: 0, padding: 0, listStyle: "none", color: "#444" }}>
+                  {coursework.map((course, i) => (
+                    <li key={i} style={{ marginBottom: "2px" }}>
+                      {course}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {technicalSkills && (technicalSkills.languages?.length > 0 || technicalSkills.frameworks?.length > 0 || technicalSkills.developerTools?.length > 0) && (
+              <div style={{ marginBottom: "25px" }}>
+                <h2
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 300,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    color: "#888",
+                    margin: "0 0 10px 0",
+                  }}
+                >
+                  Skills
+                </h2>
+                {technicalSkills.languages && technicalSkills.languages.length > 0 && (
+                  <div style={{ marginBottom: "10px" }}>
+                    <div style={{ fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Languages</div>
+                    <div style={{ color: "#444" }}>{technicalSkills.languages.join(" • ")}</div>
+                  </div>
+                )}
+                {technicalSkills.frameworks && technicalSkills.frameworks.length > 0 && (
+                  <div style={{ marginBottom: "10px" }}>
+                    <div style={{ fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Frameworks</div>
+                    <div style={{ color: "#444" }}>{technicalSkills.frameworks.join(" • ")}</div>
+                  </div>
+                )}
+                {technicalSkills.developerTools && technicalSkills.developerTools.length > 0 && (
+                  <div style={{ marginBottom: "10px" }}>
+                    <div style={{ fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Tools</div>
+                    <div style={{ color: "#444" }}>{technicalSkills.developerTools.join(" • ")}</div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Right Column */}
+          <div style={{ flex: "1" }}>
+            {experience && experience.length > 0 && (
+              <div style={{ marginBottom: "25px" }}>
+                <h2
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 300,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    color: "#888",
+                    margin: "0 0 10px 0",
+                  }}
+                >
+                  Experience
+                </h2>
+                {experience.map((exp) => (
+                  <div key={exp.id} style={{ marginBottom: "15px" }}>
+                    <div style={{ fontSize: "14px", textTransform: "uppercase" }}>
+                      <span style={{ fontWeight: 600, color: "#111" }}>{exp.company}</span>
+                      {exp.role && <span style={{ color: "#555" }}> | {exp.role}</span>}
+                    </div>
+                    <div style={{ color: "#666", marginTop: "2px", marginBottom: "6px" }}>
+                      {formatDate(exp.startDate)} – {exp.endDate ? formatDate(exp.endDate) : "Present"}
+                      {exp.location && ` | ${exp.location}`}
+                    </div>
+                    {exp.bullets && exp.bullets.length > 0 && (
+                      <ul style={{ margin: 0, paddingLeft: "20px", color: "#444" }}>
+                        {exp.bullets.map((bullet, i) => (
+                          <li key={i} style={{ marginBottom: "4px" }}>{bullet}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {projects && projects.length > 0 && (
+              <div style={{ marginBottom: "25px" }}>
+                <h2
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 300,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    color: "#888",
+                    margin: "0 0 10px 0",
+                  }}
+                >
+                  Projects
+                </h2>
+                {projects.map((proj) => (
+                  <div key={proj.id} style={{ marginBottom: "15px" }}>
+                    <div style={{ fontSize: "14px", fontWeight: 600, color: "#111", textTransform: "uppercase" }}>
+                      {proj.title}
+                    </div>
+                    <div style={{ color: "#666", marginTop: "2px", marginBottom: "4px" }}>
+                      {formatDate(proj.date)} {proj.technologies && `| ${proj.technologies}`}
+                    </div>
+                    {proj.bullets && proj.bullets.length > 0 && (
+                      <div style={{ color: "#444" }}>
+                        {proj.bullets.map((bullet, i) => (
+                          <div key={i} style={{ marginBottom: "4px" }}>{bullet}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+);
+</file>
+
+<file path="lib/api.ts">
+// ==========================================
+// ResumeAI — Placeholder API Functions
+// Ready for OpenAI, Clerk, and PDF export integration
+// ==========================================
+
+import type { Resume, ATSAnalysis, ResumeData } from "@/types";
+
+/**
+ * Generate resume content from free-form text using AI.
+ * @placeholder Ready for OpenAI integration
+ */
+export async function generateResumeContent(
+  freeText: string
+): Promise<Partial<ResumeData>> {
+  // TODO: Integrate with OpenAI API
+  // const response = await openai.chat.completions.create({
+  //   model: "gpt-4",
+  //   messages: [{ role: "user", content: `Parse this into resume sections: ${freeText}` }],
+  // });
+  console.log("[API] generateResumeContent called with:", freeText.slice(0, 50));
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({
+        personalInfo: {
+          fullName: "Generated Name",
+          email: "user@example.com",
+          phone: "+1 (555) 000-0000",
+          address: "San Francisco, CA",
+          linkedIn: "",
+          github: "",
+        },
+      });
+    }, 1500);
+  });
+}
+
+/**
+ * Analyze a resume against ATS criteria.
+ * @placeholder Ready for OpenAI integration
+ */
+export async function analyzeATS(resume: Resume): Promise<ATSAnalysis> {
+  // TODO: Integrate with OpenAI API for ATS analysis
+  console.log("[API] analyzeATS called for resume:", resume.id);
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({
+        overallScore: 84,
+        matchedSkills: [
+          "React",
+          "Node.js",
+          "PostgreSQL",
+          "Microservices",
+          "Docker",
+        ],
+        missingKeywords: ["TypeScript", "Jest", "GraphQL"],
+        suggestions: [
+          {
+            id: "sug-1",
+            icon: "edit_note",
+            text: "Add specific metrics to demonstrate impact.",
+            type: "improvement",
+          },
+          {
+            id: "sug-2",
+            icon: "swap_vert",
+            text: "Reorder sections to prioritize relevant experience.",
+            type: "tip",
+          },
+        ],
+      });
+    }, 2000);
+  });
+}
+
+/**
+ * Optimize resume for a specific job description.
+ * @placeholder Ready for OpenAI integration
+ */
+export async function optimizeForJob(
+  resume: Resume,
+  jobDescription: string
+): Promise<ATSAnalysis> {
+  // TODO: Integrate with OpenAI API
+  console.log(
+    "[API] optimizeForJob called for:",
+    resume.id,
+    "job:",
+    jobDescription.slice(0, 50)
+  );
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({
+        overallScore: 91,
+        matchedSkills: [
+          "React",
+          "TypeScript",
+          "Node.js",
+          "Docker",
+          "Kubernetes",
+        ],
+        missingKeywords: ["GraphQL", "Terraform"],
+        suggestions: [
+          {
+            id: "sug-1",
+            icon: "lightbulb",
+            text: "Your resume is well-optimized for this role.",
+            type: "tip",
+          },
+        ],
+      });
+    }, 2500);
+  });
+}
+
+/**
+ * Export resume to PDF.
+ * @placeholder Ready for PDF export integration (e.g., react-pdf, puppeteer)
+ */
+export async function exportToPDF(resume: Resume): Promise<Blob> {
+  // TODO: Integrate with PDF generation library
+  console.log("[API] exportToPDF called for resume:", resume.id);
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      // Return a mock blob
+      resolve(new Blob(["PDF content placeholder"], { type: "application/pdf" }));
+    }, 1000);
+  });
+}
+
+/**
+ * Save resume to backend.
+ * @placeholder Ready for database integration
+ */
+export async function saveResume(
+  resume: Partial<Resume>
+): Promise<{ id: string; success: boolean }> {
+  console.log("[API] saveResume called:", resume.title);
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({
+        id: resume.id || `res-${Date.now()}`,
+        success: true,
+      });
+    }, 500);
+  });
+}
+
+/**
+ * Delete a resume.
+ * @placeholder Ready for database integration
+ */
+export async function deleteResume(
+  resumeId: string
+): Promise<{ success: boolean }> {
+  console.log("[API] deleteResume called:", resumeId);
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({ success: true });
+    }, 300);
+  });
+}
+</file>
+
 <file path="lib/utils.ts">
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
@@ -5416,243 +4503,32 @@ export function getInitials(name: string): string {
 }
 </file>
 
-<file path="types/index.ts">
-// ==========================================
-// ResumeAI — TypeScript Type Definitions
-// ==========================================
+<file path=".env.example">
+# ResumeAI — Environment Variables Example
+# Duplicate this file to .env.local and populate with your credentials.
 
-// ---------- User ----------
-export interface User {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  avatarUrl?: string;
-  plan: "free" | "pro" | "enterprise";
-  createdAt: string;
-  updatedAt: string;
-}
+# -----------------------------------------------------------------------------
+# Clerk Authentication
+# Sign up at https://clerk.com to obtain these keys
+# -----------------------------------------------------------------------------
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your-clerk-publishable-key-here
+CLERK_SECRET_KEY=your-clerk-secret-key-here
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 
-// ---------- Resume Sections ----------
-export interface PersonalInfo {
-  fullName: string;
-  email: string;
-  phone: string;
-  location: string;
-  linkedIn?: string;
-  website?: string;
-  currentRole: string;
-  summary: string;
-}
+# -----------------------------------------------------------------------------
+# OpenAI API
+# Sign up at https://platform.openai.com to obtain your API key
+# -----------------------------------------------------------------------------
+OPENAI_API_KEY=your-openai-api-key-here
 
-export interface WorkExperience {
-  id: string;
-  company: string;
-  role: string;
-  location: string;
-  startDate: string;
-  endDate: string | null;
-  current: boolean;
-  description: string;
-  highlights: string[];
-}
-
-export interface Education {
-  id: string;
-  institution: string;
-  degree: string;
-  field: string;
-  startDate: string;
-  endDate: string;
-  gpa?: string;
-  highlights: string[];
-}
-
-export interface Skill {
-  id: string;
-  name: string;
-  category: "technical" | "soft" | "language" | "tool";
-  proficiency?: "beginner" | "intermediate" | "advanced" | "expert";
-}
-
-export interface Certification {
-  id: string;
-  name: string;
-  issuer: string;
-  date: string;
-  url?: string;
-}
-
-export interface Project {
-  id: string;
-  name: string;
-  description: string;
-  url?: string;
-  technologies: string[];
-}
-
-// ---------- Resume ----------
-export interface Resume {
-  id: string;
-  user_id: string;
-  title: string;
-  template_id: string;
-  resume_data: ResumeData;
-  ats_score: number | null;
-  status: "draft" | "published";
-  created_at: string;
-  updated_at: string;
-}
-
-// ---------- Resume Template ----------
-export interface ResumeTemplate {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  previewUrl: string;
-  atsOptimized: boolean;
-  matchScore?: number;
-  tags: string[];
-}
-
-// ---------- ATS Analysis ----------
-export interface ATSAnalysis {
-  overallScore: number;
-  matchedSkills: string[];
-  missingKeywords: string[];
-  suggestions: ATSSuggestion[];
-}
-
-export interface ATSSuggestion {
-  id: string;
-  icon: string;
-  text: string;
-  type: "improvement" | "warning" | "tip";
-}
-
-// ---------- Job Optimization ----------
-export interface JobOptimization {
-  jobDescription: string;
-  analysis: ATSAnalysis | null;
-  isAnalyzing: boolean;
-}
-
-// ---------- Dashboard ----------
-export interface DashboardStats {
-  totalResumes: number;
-  atsScoreAvg: number;
-  jobOptimized: number;
-  downloads: number;
-}
-
-// ---------- Resume Data (Builder Wizard) ----------
-export interface ResumePersonalInfo {
-  fullName: string;
-  address: string;
-  phone: string;
-  email: string;
-  linkedIn: string;
-  github: string;
-}
-
-export interface ResumeEducation {
-  id: string;
-  university: string;
-  degree: string;
-  location: string;
-  startDate: string;
-  endDate: string;
-  cgpa: string;
-}
-
-export interface ResumeExperience {
-  id: string;
-  company: string;
-  role: string;
-  location: string;
-  startDate: string;
-  endDate: string;
-  bullets: string[];
-}
-
-export interface ResumeProject {
-  id: string;
-  title: string;
-  technologies: string;
-  date: string;
-  bullets: string[];
-}
-
-export interface ResumeTechnicalSkills {
-  languages: string[];
-  developerTools: string[];
-  frameworks: string[];
-}
-
-export interface ResumeLeadership {
-  id: string;
-  organization: string;
-  role: string;
-  duration: string;
-  bullets: string[];
-}
-
-export interface ResumeData {
-  personalInfo: ResumePersonalInfo;
-  education: ResumeEducation[];
-  coursework: string[];
-  experience: ResumeExperience[];
-  projects: ResumeProject[];
-  technicalSkills: ResumeTechnicalSkills;
-  leadership: ResumeLeadership[];
-}
-
-// ---------- Builder Steps ----------
-export type BuilderStep =
-  | "personal-info"
-  | "education"
-  | "coursework"
-  | "experience"
-  | "projects"
-  | "technical-skills"
-  | "leadership"
-  | "template";
-
-export interface BuilderState {
-  currentStep: number;
-  totalSteps: number;
-  resumeData: ResumeData;
-  selectedTemplateId: string | null;
-}
-
-// ---------- Settings ----------
-export interface UserSettings {
-  profile: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    avatarUrl?: string;
-  };
-  preferences: {
-    defaultTemplate: string;
-    aiTone: "professional" | "creative" | "casual";
-    autoSave: boolean;
-  };
-  billing: {
-    plan: "free" | "pro" | "enterprise";
-    nextBillingDate?: string;
-    paymentMethod?: string;
-  };
-}
-
-// ---------- Navigation ----------
-export interface NavItem {
-  label: string;
-  href: string;
-  icon: string;
-  active?: boolean;
-}
+# -----------------------------------------------------------------------------
+# Supabase
+# Sign up at https://supabase.com to obtain your API keys
+# -----------------------------------------------------------------------------
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 </file>
 
 <file path=".gitignore">
@@ -5810,6 +4686,89 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 ## 📄 License
 
 This project is licensed under the MIT License.
+</file>
+
+<file path="app/(dashboard)/templates/page.tsx">
+import { TEMPLATE_CONFIGS, getTemplateIds } from "@/lib/template-configs";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
+import Image from "next/image";
+
+export default function TemplatesPage() {
+  const templateIds = getTemplateIds();
+
+  return (
+    <div className="space-y-6 max-w-6xl mx-auto pb-10">
+      <div>
+        <h2 className="text-3xl font-heading font-bold text-foreground">Template Gallery</h2>
+        <p className="text-muted-foreground mt-2 text-lg">
+          Choose from our selection of ATS-optimized and modern designs.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
+        {templateIds.map((id) => {
+          const config = TEMPLATE_CONFIGS[id];
+
+          return (
+            <Card
+              key={id}
+              className="flex flex-col overflow-hidden border-border shadow-sm hover:shadow-md transition-shadow group"
+            >
+              {/* Preview Area */}
+              <div className="bg-muted/20 p-6 border-b border-border group-hover:bg-muted/40 transition-colors">
+                <div className="relative w-full aspect-[1/1.414] overflow-hidden bg-white rounded-lg border border-border shadow-sm">
+                  <Image
+                    src={config.previewImage}
+                    alt={`${config.name} preview`}
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    priority
+                    className="object-cover object-top"
+                  />
+                </div>
+              </div>
+
+              {/* Template Info Area */}
+              <div className="p-5 bg-card flex flex-col flex-1">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <h3 className="font-semibold text-lg text-foreground leading-tight">
+                    {config.name}
+                  </h3>
+                  <Badge
+                    className={cn(
+                      "text-[10px] px-2 py-0.5 whitespace-nowrap",
+                      config.badgeColor.bg,
+                      config.badgeColor.text,
+                      config.badgeColor.border
+                    )}
+                  >
+                    {config.badge}
+                  </Badge>
+                </div>
+                
+                <p className="text-sm text-muted-foreground flex-1 mb-5 leading-relaxed">
+                  {config.description}
+                </p>
+
+                <div className="mt-auto">
+                  <Link href={`/builder?new=1&template=${id}`}>
+                    <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm">
+                      Use this template
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 </file>
 
 <file path="app/globals.css">
@@ -6062,97 +5021,138 @@ This project is licensed under the MIT License.
 }
 </file>
 
-<file path="app/page.tsx">
-import { TopNavbar } from "@/components/layout/top-navbar";
-import { Footer } from "@/components/layout/footer";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
+<file path="components/forms/template-selection-step.tsx">
+"use client";
 
-export default function LandingPage() {
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle, FileText, GraduationCap, Briefcase, Code, Award, BookOpen, Wrench, Users } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { TEMPLATE_CONFIGS, getTemplateIds } from "@/lib/template-configs";
+import type { FormSectionKey } from "@/lib/template-configs";
+import Image from "next/image";
+
+interface TemplateSelectionStepProps {
+  selectedTemplateId: string | null;
+  onSelect: (id: string) => void;
+}
+
+// Icons for each section key
+const SECTION_ICONS: Record<FormSectionKey, React.ReactNode> = {
+  "personal-info": <FileText className="w-3.5 h-3.5" />,
+  "education": <GraduationCap className="w-3.5 h-3.5" />,
+  "coursework": <BookOpen className="w-3.5 h-3.5" />,
+  "experience": <Briefcase className="w-3.5 h-3.5" />,
+  "projects": <Code className="w-3.5 h-3.5" />,
+  "technical-skills": <Wrench className="w-3.5 h-3.5" />,
+  "leadership": <Users className="w-3.5 h-3.5" />,
+};
+
+const SECTION_LABELS: Record<FormSectionKey, string> = {
+  "personal-info": "Personal Info",
+  "education": "Education",
+  "coursework": "Coursework",
+  "experience": "Experience",
+  "projects": "Projects",
+  "technical-skills": "Technical Skills",
+  "leadership": "Leadership",
+};
+
+
+export function TemplateSelectionStep({
+  selectedTemplateId,
+  onSelect,
+}: TemplateSelectionStepProps) {
+  const templateIds = getTemplateIds();
+
   return (
-    <div className="min-h-screen flex flex-col bg-background selection:bg-primary/20">
-      <TopNavbar />
-      
-      <main className="flex-1 flex items-center pt-24 pb-32 md:pt-32 md:pb-64">
-        <div className="container mx-auto px-4 md:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-8 items-center">
-            
-            {/* Left Column: Copy & CTA */}
-            <div className="max-w-xl">
-              <h1 className="font-heading font-extrabold text-5xl md:text-6xl text-foreground leading-[1.1] mb-6">
-                Build ATS-Friendly<br />Resumes with AI
-              </h1>
-              
-              <p className="text-lg md:text-xl text-muted-foreground mb-10 leading-relaxed pr-4">
-                Generate professional ATS-optimized resumes in seconds. Impress recruiters and beat Applicant Tracking Systems with our intelligent resume builder.
-              </p>
-              
-              <div className="flex flex-col sm:flex-row items-center gap-4">
-                <Link href="/sign-up" className="w-full sm:w-auto">
-                  <Button size="lg" className="w-full sm:w-auto h-12 px-8 text-base bg-primary hover:bg-primary/90 text-primary-foreground rounded-md shadow-sm">
-                    Start Building Free
-                  </Button>
-                </Link>
-                <Link href="/templates" className="w-full sm:w-auto">
-                  <Button size="lg" variant="outline" className="w-full sm:w-auto h-12 px-8 text-base border-border text-foreground hover:bg-accent rounded-md font-medium">
-                    View Templates
-                  </Button>
-                </Link>
-              </div>
-            </div>
+    <div className="space-y-8 animate-in fade-in duration-300">
+      <div>
+        <h3 className="text-2xl font-bold mb-1">Choose a Template</h3>
+        <p className="text-muted-foreground">
+          Each template shows different sections tailored to the role you&apos;re targeting.
+        </p>
+      </div>
 
-            {/* Right Column: macOS Window Mockup */}
-            <div className="relative w-full max-w-lg mx-auto lg:ml-auto lg:mr-0 pl-0 lg:pl-8">
-              {/* Optional subtle background glow if needed, but the design looks very clean/white */}
-              <div className="relative rounded-xl border border-border/60 bg-card shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] overflow-hidden">
-                
-                {/* macOS Header */}
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-border/50 bg-muted/30">
-                  <div className="flex gap-1.5">
-                    <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
-                    <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
-                    <div className="w-3 h-3 rounded-full bg-[#27C93F]" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {templateIds.map((id) => {
+          const config = TEMPLATE_CONFIGS[id];
+          const isSelected = selectedTemplateId === id;
+
+          return (
+            <Card
+              key={id}
+              className={cn(
+                "cursor-pointer transition-all duration-200 overflow-hidden border-2 flex flex-col",
+                isSelected
+                  ? "border-primary shadow-lg shadow-primary/10 ring-2 ring-primary/20"
+                  : "border-border hover:border-primary/40 hover:shadow-md"
+              )}
+              onClick={() => onSelect(id)}
+            >
+              {/* Mini preview */}
+              <div className="aspect-[1/1.2] bg-white relative overflow-hidden">
+                <Image
+                  src={config.previewImage}
+                  alt={`${config.name} preview`}
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  priority
+                  className="object-cover object-top"
+                />
+
+                {isSelected && (
+                  <div className="absolute top-2 right-2">
+                    <div className="bg-primary text-primary-foreground rounded-full p-1">
+                      <CheckCircle className="w-4 h-4" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Template info */}
+              <div className="p-4 bg-card border-t border-border flex-1 flex flex-col">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold text-foreground text-sm">{config.name}</h4>
+                  <Badge
+                    className={cn(
+                      "text-[10px] px-1.5 py-0.5",
+                      config.badgeColor.bg,
+                      config.badgeColor.text,
+                      config.badgeColor.border
+                    )}
+                  >
+                    {config.badge}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mb-3 flex-1">
+                  {config.description}
+                </p>
+
+                {/* Section preview list */}
+                <div className="space-y-1 pt-2 border-t border-border">
+                  <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground">
+                    Sections included
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {config.sections
+                      .filter((s) => s !== "personal-info")
+                      .map((section) => (
+                        <span
+                          key={section}
+                          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md"
+                        >
+                          {SECTION_ICONS[section]}
+                          {SECTION_LABELS[section]}
+                        </span>
+                      ))}
                   </div>
                 </div>
-                
-                {/* Window Body (Resume Content) */}
-                <div className="p-8 md:p-10 bg-background relative min-h-[380px] flex flex-col gap-6">
-                  {/* Abstract Resume Lines */}
-                  <div className="space-y-3">
-                    <div className="w-1/3 h-4 bg-muted rounded-md mb-6" />
-                    <div className="w-full h-2 bg-muted/60 rounded-md" />
-                    <div className="w-5/6 h-2 bg-muted/60 rounded-md" />
-                    <div className="w-4/6 h-2 bg-muted/60 rounded-md" />
-                  </div>
-
-                  <div className="space-y-3 pt-4">
-                    <div className="w-1/4 h-3 bg-muted rounded-md mb-4" />
-                    <div className="w-full h-2 bg-muted/60 rounded-md" />
-                    <div className="w-full h-2 bg-muted/60 rounded-md" />
-                    <div className="w-3/4 h-2 bg-muted/60 rounded-md" />
-                  </div>
-
-                  <div className="space-y-3 pt-4">
-                    <div className="w-1/4 h-3 bg-muted rounded-md mb-4" />
-                    <div className="w-full h-2 bg-muted/60 rounded-md" />
-                    <div className="w-5/6 h-2 bg-muted/60 rounded-md" />
-                  </div>
-
-                  {/* Overlay Button */}
-                  <div className="absolute inset-0 bg-background/40 backdrop-blur-[2px] flex items-center justify-center">
-                    <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg h-12 px-8 rounded-full text-base font-medium transition-transform hover:scale-105">
-                      Analyze Resume
-                    </Button>
-                  </div>
-                </div>
               </div>
-            </div>
-
-          </div>
-        </div>
-      </main>
-      
-      <Footer />
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -6264,6 +5264,1234 @@ export function TopNavbar() {
 }
 </file>
 
+<file path="hooks/use-resume-builder.ts">
+"use client";
+
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
+import type {
+  ResumeData,
+  ResumeEducation,
+  ResumeExperience,
+  ResumeProject,
+  ResumeLeadership,
+} from "@/types";
+import { getStepsForTemplate } from "@/lib/template-configs";
+import type { StepInfo } from "@/lib/template-configs";
+
+const STORAGE_KEY = "resumeai-draft";
+
+function generateId(): string {
+  return Math.random().toString(36).substring(2, 9);
+}
+
+export function getEmptyResumeData(): ResumeData {
+  return {
+    personalInfo: {
+      fullName: "",
+      address: "",
+      phone: "",
+      email: "",
+      linkedIn: "",
+      github: "",
+    },
+    education: [],
+    coursework: [],
+    experience: [],
+    projects: [],
+    technicalSkills: {
+      languages: [],
+      developerTools: [],
+      frameworks: [],
+    },
+    leadership: [],
+  };
+}
+
+export function createEmptyEducation(): ResumeEducation {
+  return {
+    id: generateId(),
+    university: "",
+    degree: "",
+    location: "",
+    startDate: "",
+    endDate: "",
+    cgpa: "",
+  };
+}
+
+export function createEmptyExperience(): ResumeExperience {
+  return {
+    id: generateId(),
+    company: "",
+    role: "",
+    location: "",
+    startDate: "",
+    endDate: "",
+    bullets: [""],
+  };
+}
+
+export function createEmptyProject(): ResumeProject {
+  return {
+    id: generateId(),
+    title: "",
+    technologies: "",
+    date: "",
+    bullets: [""],
+  };
+}
+
+export function createEmptyLeadership(): ResumeLeadership {
+  return {
+    id: generateId(),
+    organization: "",
+    role: "",
+    duration: "",
+    bullets: [""],
+  };
+}
+
+export function useResumeBuilder(templateId: string | null) {
+  const searchParams = useSearchParams();
+  const resumeId = searchParams?.get("id");
+  const isNew = searchParams?.get("new") === "1";
+
+  const [resumeData, setResumeData] = useState<ResumeData>(getEmptyResumeData);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [hydrated, setHydrated] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(!!resumeId);
+  const [loadedTemplateId, setLoadedTemplateId] = useState<string | null>(null);
+
+  // Derive steps dynamically from the selected template
+  const steps: StepInfo[] = useMemo(
+    () => getStepsForTemplate(templateId),
+    [templateId]
+  );
+
+  // Clamp currentStep when steps array changes (template switch)
+  useEffect(() => {
+    setCurrentStep((prev) => Math.min(prev, steps.length - 1));
+  }, [steps.length]);
+
+  // Load from API if ID is present, else restore from localStorage
+  useEffect(() => {
+    async function init() {
+      if (resumeId) {
+        try {
+          const res = await fetch(`/api/resumes/${resumeId}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.resume_data) {
+              // Ensure we merge with empty so no fields are completely missing
+              setResumeData((prev) => ({ ...getEmptyResumeData(), ...data.resume_data }));
+            }
+            if (data.template_id) {
+              setLoadedTemplateId(data.template_id);
+            }
+          }
+        } catch (error) {
+          console.error("Failed to load resume from API", error);
+        } finally {
+          setIsLoading(false);
+          setHydrated(true);
+        }
+      } else if (isNew) {
+        setResumeData(getEmptyResumeData());
+        setIsLoading(false);
+        setHydrated(true);
+      } else {
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.resumeData) setResumeData(parsed.resumeData);
+            if (typeof parsed.currentStep === "number") setCurrentStep(parsed.currentStep);
+          }
+        } catch {
+          // ignore parse errors
+        }
+        setIsLoading(false);
+        setHydrated(true);
+      }
+    }
+    init();
+  }, [resumeId]);
+
+  // Auto-save to localStorage on changes
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ resumeData, currentStep, templateId })
+      );
+    } catch {
+      // ignore quota errors
+    }
+  }, [resumeData, currentStep, templateId, hydrated]);
+
+  const updateResumeData = useCallback(
+    (updater: (prev: ResumeData) => ResumeData) => {
+      setResumeData((prev) => updater(prev));
+    },
+    []
+  );
+
+  const nextStep = useCallback(() => {
+    setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
+  }, [steps.length]);
+
+  const prevStep = useCallback(() => {
+    setCurrentStep((prev) => Math.max(prev - 1, 0));
+  }, []);
+
+  const goToStep = useCallback(
+    (step: number) => {
+      setCurrentStep(Math.max(0, Math.min(step, steps.length - 1)));
+    },
+    [steps.length]
+  );
+
+  const resetBuilder = useCallback(() => {
+    setResumeData(getEmptyResumeData());
+    setCurrentStep(0);
+    localStorage.removeItem(STORAGE_KEY);
+  }, []);
+
+  const saveToDatabase = useCallback(
+    async (title: string, currentTemplateId: string) => {
+      setIsSaving(true);
+      try {
+        const url = resumeId ? `/api/resumes/${resumeId}` : "/api/resumes";
+        const method = resumeId ? "PATCH" : "POST";
+        
+        const res = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            template_id: currentTemplateId,
+            resume_data: resumeData,
+            status: "published",
+          }),
+        });
+        
+        if (!res.ok) throw new Error("Failed to save resume");
+        return await res.json();
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [resumeData, resumeId]
+  );
+
+  return {
+    resumeData,
+    currentStep,
+    hydrated,
+    steps,
+    updateResumeData,
+    nextStep,
+    prevStep,
+    goToStep,
+    resetBuilder,
+    saveToDatabase,
+    isSaving,
+    isLoading,
+    loadedTemplateId,
+    totalSteps: steps.length,
+    currentStepInfo: steps[currentStep] ?? steps[0],
+    isFirstStep: currentStep === 0,
+    isLastStep: currentStep === steps.length - 1,
+  };
+}
+</file>
+
+<file path="lib/template-configs.ts">
+import type { ResumePersonalInfo, BuilderStep } from "@/types";
+
+// All possible form section keys (excludes "template" which is always step 1)
+export type FormSectionKey = Exclude<BuilderStep, "template">;
+
+export interface TemplateConfig {
+  id: string;
+  name: string;
+  description: string;
+  badge: string;
+  badgeColor: { bg: string; text: string; border: string };
+  sections: FormSectionKey[];
+  personalInfoFields: (keyof ResumePersonalInfo)[];
+  requiredPersonalInfoFields: (keyof ResumePersonalInfo)[];
+  previewImage: string;
+}
+
+export interface StepInfo {
+  key: BuilderStep;
+  label: string;
+  number: number;
+}
+
+// Labels for each section key
+const SECTION_LABELS: Record<BuilderStep, string> = {
+  "template": "Template",
+  "personal-info": "Personal Info",
+  "education": "Education",
+  "coursework": "Coursework",
+  "experience": "Experience",
+  "projects": "Projects",
+  "technical-skills": "Skills",
+  "leadership": "Leadership",
+};
+
+// ─── Template Configs ────────────────────────────────────
+
+export const TEMPLATE_CONFIGS: Record<string, TemplateConfig> = {
+  "ats-professional": {
+    id: "ats-professional",
+    name: "ATS Professional",
+    description:
+      "Clean, structured layout optimized for Applicant Tracking Systems. Uses serif headings, clear section dividers, and professional formatting.",
+    badge: "ATS Friendly",
+    badgeColor: {
+      bg: "bg-emerald-100 dark:bg-emerald-950/30",
+      text: "text-emerald-700 dark:text-emerald-400",
+      border: "border-emerald-200 dark:border-emerald-800",
+    },
+    sections: [
+      "personal-info",
+      "education",
+      "coursework",
+      "experience",
+      "projects",
+      "technical-skills",
+      "leadership",
+    ],
+    personalInfoFields: ["fullName", "address", "phone", "email", "linkedIn", "github"],
+    requiredPersonalInfoFields: ["fullName", "email"],
+    previewImage: "/templates/ats-professional.png",
+  },
+
+  "modern-two-column": {
+    id: "modern-two-column",
+    name: "Modern Two-Column",
+    description:
+      "A clean, modern two-column layout that highlights education and skills on the left, with experience and projects on the right.",
+    badge: "Modern",
+    badgeColor: {
+      bg: "bg-blue-100 dark:bg-blue-950/30",
+      text: "text-blue-700 dark:text-blue-400",
+      border: "border-blue-200 dark:border-blue-800",
+    },
+    sections: [
+      "personal-info",
+      "education",
+      "coursework",
+      "experience",
+      "projects",
+      "technical-skills",
+    ],
+    personalInfoFields: ["fullName", "address", "phone", "email", "linkedIn", "github"],
+    requiredPersonalInfoFields: ["fullName", "email"],
+    previewImage: "/templates/modern-two-column.png",
+  },
+};
+
+// ─── Helpers ─────────────────────────────────────────────
+
+/** Get the ordered list of template IDs for rendering */
+export function getTemplateIds(): string[] {
+  return Object.keys(TEMPLATE_CONFIGS);
+}
+
+/** Get a template config by id, falls back to ats-professional */
+export function getTemplateConfig(templateId: string | null): TemplateConfig {
+  if (templateId && TEMPLATE_CONFIGS[templateId]) {
+    return TEMPLATE_CONFIGS[templateId];
+  }
+  return TEMPLATE_CONFIGS["ats-professional"];
+}
+
+/**
+ * Build the full wizard step array for a given template.
+ * Template selection is always step 1, then the template's sections follow.
+ */
+export function getStepsForTemplate(templateId: string | null): StepInfo[] {
+  const config = getTemplateConfig(templateId);
+
+  const steps: StepInfo[] = [
+    { key: "template", label: "Template", number: 1 },
+  ];
+
+  config.sections.forEach((sectionKey, idx) => {
+    steps.push({
+      key: sectionKey,
+      label: SECTION_LABELS[sectionKey],
+      number: idx + 2, // starts at 2 since template is 1
+    });
+  });
+
+  return steps;
+}
+</file>
+
+<file path="types/index.ts">
+// ==========================================
+// ResumeAI — TypeScript Type Definitions
+// ==========================================
+
+// ---------- User ----------
+export interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl?: string;
+  plan: "free" | "pro" | "enterprise";
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---------- Resume Sections ----------
+export interface PersonalInfo {
+  fullName: string;
+  email: string;
+  phone: string;
+  location: string;
+  linkedIn?: string;
+  website?: string;
+  currentRole: string;
+  summary: string;
+}
+
+export interface WorkExperience {
+  id: string;
+  company: string;
+  role: string;
+  location: string;
+  startDate: string;
+  endDate: string | null;
+  current: boolean;
+  description: string;
+  highlights: string[];
+}
+
+export interface Education {
+  id: string;
+  institution: string;
+  degree: string;
+  field: string;
+  startDate: string;
+  endDate: string;
+  gpa?: string;
+  highlights: string[];
+}
+
+export interface Skill {
+  id: string;
+  name: string;
+  category: "technical" | "soft" | "language" | "tool";
+  proficiency?: "beginner" | "intermediate" | "advanced" | "expert";
+}
+
+export interface Certification {
+  id: string;
+  name: string;
+  issuer: string;
+  date: string;
+  url?: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description: string;
+  url?: string;
+  technologies: string[];
+}
+
+// ---------- Resume ----------
+export interface Resume {
+  id: string;
+  user_id: string;
+  title: string;
+  template_id: string;
+  resume_data: ResumeData;
+  ats_score: number | null;
+  status: "draft" | "published";
+  created_at: string;
+  updated_at: string;
+}
+
+// ---------- Resume Template ----------
+export interface ResumeTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  previewUrl: string;
+  atsOptimized: boolean;
+  matchScore?: number;
+  tags: string[];
+}
+
+// ---------- ATS Analysis ----------
+export interface ATSAnalysis {
+  overallScore: number;
+  matchedSkills: string[];
+  missingKeywords: string[];
+  suggestions: ATSSuggestion[];
+}
+
+export interface ATSSuggestion {
+  id: string;
+  icon: string;
+  text: string;
+  type: "improvement" | "warning" | "tip";
+}
+
+// ---------- Job Optimization ----------
+export interface JobOptimization {
+  jobDescription: string;
+  analysis: ATSAnalysis | null;
+  isAnalyzing: boolean;
+}
+
+// ---------- Dashboard ----------
+export interface DashboardStats {
+  totalResumes: number;
+  atsScoreAvg: number;
+  jobOptimized: number;
+  downloads: number;
+}
+
+// ---------- Resume Data (Builder Wizard) ----------
+export interface ResumePersonalInfo {
+  fullName: string;
+  address: string;
+  phone: string;
+  email: string;
+  linkedIn: string;
+  github: string;
+}
+
+export interface ResumeEducation {
+  id: string;
+  university: string;
+  degree: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  cgpa: string;
+}
+
+export interface ResumeExperience {
+  id: string;
+  company: string;
+  role: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  bullets: string[];
+}
+
+export interface ResumeProject {
+  id: string;
+  title: string;
+  technologies: string;
+  date: string;
+  bullets: string[];
+}
+
+export interface ResumeTechnicalSkills {
+  languages: string[];
+  developerTools: string[];
+  frameworks: string[];
+}
+
+export interface ResumeLeadership {
+  id: string;
+  organization: string;
+  role: string;
+  duration: string;
+  bullets: string[];
+}
+
+export interface ResumeData {
+  personalInfo: ResumePersonalInfo;
+  education: ResumeEducation[];
+  coursework: string[];
+  experience: ResumeExperience[];
+  projects: ResumeProject[];
+  technicalSkills: ResumeTechnicalSkills;
+  leadership: ResumeLeadership[];
+}
+
+// ---------- Builder Steps ----------
+export type BuilderStep =
+  | "personal-info"
+  | "education"
+  | "coursework"
+  | "experience"
+  | "projects"
+  | "technical-skills"
+  | "leadership"
+  | "template";
+
+export interface BuilderState {
+  currentStep: number;
+  totalSteps: number;
+  resumeData: ResumeData;
+  selectedTemplateId: string | null;
+}
+
+// ---------- Settings ----------
+export interface UserSettings {
+  profile: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    avatarUrl?: string;
+  };
+  preferences: {
+    defaultTemplate: string;
+    aiTone: "professional" | "creative" | "casual";
+    autoSave: boolean;
+  };
+  billing: {
+    plan: "free" | "pro" | "enterprise";
+    nextBillingDate?: string;
+    paymentMethod?: string;
+  };
+}
+
+// ---------- Navigation ----------
+export interface NavItem {
+  label: string;
+  href: string;
+  icon: string;
+  active?: boolean;
+}
+</file>
+
+<file path="app/(dashboard)/builder/page.tsx">
+"use client";
+
+import { useState, useRef, useCallback, Suspense, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+import { useResumeBuilder } from "@/hooks/use-resume-builder";
+import { usePdfGenerator } from "@/hooks/use-pdf-generator";
+import { getTemplateConfig } from "@/lib/template-configs";
+
+import { PersonalInfoStep } from "@/components/forms/personal-info-step";
+import { EducationStep } from "@/components/forms/education-step";
+import { CourseworkStep } from "@/components/forms/coursework-step";
+import { ExperienceStep } from "@/components/forms/experience-step";
+import { ProjectsStep } from "@/components/forms/projects-step";
+import { TechnicalSkillsStep } from "@/components/forms/technical-skills-step";
+import { LeadershipStep } from "@/components/forms/leadership-step";
+import { TemplateSelectionStep } from "@/components/forms/template-selection-step";
+import { GeneratingScreen } from "@/components/forms/generating-screen";
+import { SuccessScreen } from "@/components/forms/success-screen";
+import { ATSTemplate } from "@/components/resume-templates/ats-template";
+import { ModernTwoColumnTemplate } from "@/components/resume-templates/modern-two-column-template";
+
+type BuilderPhase = "editing" | "generating" | "success";
+
+function BuilderContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const resumeId = searchParams?.get("id");
+  const templateParam = searchParams?.get("template");
+
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+    resumeId ? null : (templateParam || "ats-professional")
+  );
+
+  const builder = useResumeBuilder(selectedTemplateId);
+
+  useEffect(() => {
+    if (builder.loadedTemplateId) {
+      setSelectedTemplateId(builder.loadedTemplateId);
+    }
+  }, [builder.loadedTemplateId]);
+  const templateRef = useRef<HTMLDivElement>(null);
+  const { generatePDF } = usePdfGenerator(templateRef);
+
+  const [phase, setPhase] = useState<BuilderPhase>("editing");
+
+  const templateConfig = getTemplateConfig(selectedTemplateId);
+
+  const progress =
+    ((builder.currentStep + 1) / builder.totalSteps) * 100;
+
+  const handleGenerate = useCallback(async () => {
+    try {
+      const title = builder.resumeData.personalInfo.fullName 
+        ? `${builder.resumeData.personalInfo.fullName} Resume`
+        : "Untitled Resume";
+      
+      await builder.saveToDatabase(
+        title,
+        selectedTemplateId || "ats-professional"
+      );
+    } catch (error) {
+      console.error("Failed to save resume:", error);
+      // We still proceed to generating so the user can download their PDF even if DB save fails
+    }
+    setPhase("generating");
+  }, [builder, selectedTemplateId]);
+
+  const handleGenerateComplete = useCallback(async () => {
+    await generatePDF();
+    setPhase("success");
+  }, [generatePDF]);
+
+  const handleDownloadAgain = useCallback(async () => {
+    await generatePDF();
+  }, [generatePDF]);
+
+  const handleCreateAnother = useCallback(() => {
+    builder.resetBuilder();
+    setPhase("editing");
+    setSelectedTemplateId(null);
+    router.push("/builder?new=1");
+  }, [builder, router]);
+
+  const handleTemplateSelect = useCallback(
+    (id: string) => {
+      setSelectedTemplateId(id);
+      // If user is on step 0 (template selection), stay there.
+      // If they switched mid-way, clamp step to step 1 (first form step)
+      // so they review their data in the new step order.
+      if (builder.currentStep > 0) {
+        builder.goToStep(1);
+      }
+    },
+    [builder]
+  );
+
+  // Don't render until localStorage has been hydrated and API fetch is complete
+  if (!builder.hydrated || builder.isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  // Render the step component for a given step key
+  const renderStep = () => {
+    const key = builder.currentStepInfo.key;
+
+    switch (key) {
+      case "template":
+        return (
+          <TemplateSelectionStep
+            selectedTemplateId={selectedTemplateId}
+            onSelect={handleTemplateSelect}
+          />
+        );
+      case "personal-info":
+        return (
+          <PersonalInfoStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+            visibleFields={templateConfig.personalInfoFields}
+            requiredFields={templateConfig.requiredPersonalInfoFields}
+          />
+        );
+      case "education":
+        return (
+          <EducationStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      case "coursework":
+        return (
+          <CourseworkStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      case "experience":
+        return (
+          <ExperienceStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      case "projects":
+        return (
+          <ProjectsStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      case "technical-skills":
+        return (
+          <TechnicalSkillsStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      case "leadership":
+        return (
+          <LeadershipStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="flex flex-col min-h-[calc(100vh-80px)] -m-4 md:-m-6">
+      {/* Hidden template for PDF generation */}
+      <div
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          top: 0,
+        }}
+        aria-hidden="true"
+      >
+        {selectedTemplateId === "ats-professional" && (
+          <ATSTemplate ref={templateRef} data={builder.resumeData} />
+        )}
+        {selectedTemplateId === "modern-two-column" && (
+          <ModernTwoColumnTemplate ref={templateRef} data={builder.resumeData} />
+        )}
+      </div>
+
+      {/* Phase: Generating */}
+      {phase === "generating" && (
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg">
+            <GeneratingScreen onComplete={handleGenerateComplete} />
+          </div>
+        </div>
+      )}
+
+      {/* Phase: Success */}
+      {phase === "success" && (
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg">
+            <SuccessScreen
+              onDownloadAgain={handleDownloadAgain}
+              onCreateAnother={handleCreateAnother}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Phase: Editing (wizard) */}
+      {phase === "editing" && (
+        <>
+          {/* Top Progress Bar */}
+          <div className="bg-card border-b border-border p-4 shrink-0 shadow-sm z-10">
+            <div className="max-w-3xl mx-auto">
+              {/* Step indicators */}
+              <div className="hidden sm:flex justify-between mb-3">
+                {builder.steps.map((step, idx) => (
+                  <button
+                    key={step.key}
+                    onClick={() => builder.goToStep(idx)}
+                    className={cn(
+                      "flex items-center gap-1.5 text-xs font-medium transition-colors cursor-pointer",
+                      idx <= builder.currentStep
+                        ? "text-primary"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors",
+                        idx < builder.currentStep
+                          ? "bg-primary border-primary text-primary-foreground"
+                          : idx === builder.currentStep
+                            ? "border-primary text-primary"
+                            : "border-muted text-muted-foreground"
+                      )}
+                    >
+                      {idx < builder.currentStep ? "✓" : step.number}
+                    </span>
+                    <span className="hidden lg:inline">{step.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Mobile step label */}
+              <div className="sm:hidden text-sm font-medium text-muted-foreground mb-2">
+                Step {builder.currentStep + 1} of {builder.totalSteps}:{" "}
+                <span className="text-foreground">
+                  {builder.currentStepInfo.label}
+                </span>
+              </div>
+
+              <Progress value={progress} className="h-2 bg-muted" />
+            </div>
+          </div>
+
+          {/* Main content area */}
+          <div className="flex-1 overflow-y-auto p-4 md:p-6">
+            <div className="max-w-3xl mx-auto">
+              {/* Step content */}
+              {renderStep()}
+
+              {/* Navigation buttons */}
+              <div className="flex items-center justify-between mt-10 pb-6">
+                <Button
+                  variant="outline"
+                  onClick={builder.prevStep}
+                  disabled={builder.isFirstStep}
+                  className="bg-background"
+                >
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+
+                {builder.isLastStep ? (
+                  <Button
+                    onClick={handleGenerate}
+                    className="bg-primary text-primary-foreground shadow-sm"
+                    disabled={!selectedTemplateId}
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate Resume
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={builder.nextStep}
+                    className="bg-primary text-primary-foreground"
+                  >
+                    Next Step
+                    <ChevronRight className="w-4 h-4 ml-2" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function BuilderPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="animate-pulse text-muted-foreground">Loading Builder...</div>
+      </div>
+    }>
+      <BuilderContent />
+    </Suspense>
+  );
+}
+</file>
+
+<file path="app/(dashboard)/dashboard/page.tsx">
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { FileText, Download, TrendingUp, CheckCircle, Clock } from "lucide-react";
+import { currentUser } from "@clerk/nextjs/server";
+import { EmptyState } from "@/components/ui/empty-state";
+import Link from "next/link";
+import { getUserResumes } from "@/lib/supabase/resumes";
+
+export default async function DashboardPage() {
+  const user = await currentUser();
+  const firstName = user?.firstName || "User";
+  const userId = user?.id;
+
+  if (!userId) {
+    return <div>Not signed in</div>;
+  }
+
+  // Fetch real resumes
+  const allResumes = await getUserResumes(userId);
+  const recentResumes = allResumes.slice(0, 3); // top 3 for dashboard
+
+  // Calculate actual stats
+  const totalResumes = allResumes.length;
+  
+  // Calculate avg ATS score only for resumes that have one
+  const scoredResumes = allResumes.filter(r => r.ats_score !== null);
+  const atsScoreAvg = scoredResumes.length > 0
+    ? Math.round(scoredResumes.reduce((acc, r) => acc + (r.ats_score || 0), 0) / scoredResumes.length)
+    : null;
+
+  // Count resumes that have a good ATS score (e.g., > 70) as "Job Optimized"
+  const jobOptimized = scoredResumes.filter(r => (r.ats_score || 0) >= 70).length;
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500">
+      {/* Welcome Header */}
+      <div>
+        <h2 className="text-3xl font-heading font-bold text-foreground">
+          Welcome back, {firstName} 👋
+        </h2>
+        <p className="text-muted-foreground mt-1">
+          Here&apos;s what&apos;s happening with your job search today.
+        </p>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="p-6 border-border shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-primary/10 text-primary rounded-lg">
+              <FileText className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Total Resumes</p>
+              <p className="text-2xl font-bold text-foreground">{totalResumes}</p>
+            </div>
+          </div>
+        </Card>
+        
+        <Card className="p-6 border-border shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-emerald-100 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-lg">
+              <TrendingUp className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">ATS Score Avg</p>
+              <p className="text-2xl font-bold text-foreground">
+                {atsScoreAvg !== null ? atsScoreAvg : "--"}
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6 border-border shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-amber-100 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 rounded-lg">
+              <CheckCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Job Optimized</p>
+              <p className="text-2xl font-bold text-foreground">{jobOptimized}</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6 border-border shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-blue-100 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 rounded-lg">
+              <Download className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Downloads</p>
+              <p className="text-2xl font-bold text-foreground">0</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Recent Resumes */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-semibold text-foreground">Recent Resumes</h3>
+          {allResumes.length > 0 && (
+            <Link href="/resumes" className="text-sm text-primary font-medium hover:underline">
+              View all
+            </Link>
+          )}
+        </div>
+
+        {recentResumes.length === 0 ? (
+          <EmptyState
+            title="No resumes yet"
+            description="Create your first AI-powered resume to get started."
+            icon={<FileText className="w-8 h-8" />}
+            action={
+              <Link href="/builder?new=1">
+                <Button className="bg-primary text-primary-foreground shadow-sm">
+                  Create Resume
+                </Button>
+              </Link>
+            }
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {recentResumes.map((resume) => (
+              <Card key={resume.id} className="flex flex-col border-border shadow-sm hover:border-primary/50 transition-colors overflow-hidden group">
+                {/* Visual Header */}
+                <div className="h-32 bg-muted relative border-b border-border p-4 flex flex-col justify-end">
+                  <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary via-transparent to-transparent"></div>
+                  <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] bg-center opacity-5"></div>
+                  <div className="relative z-10 flex items-center justify-between">
+                    <span className="px-2 py-1 bg-background/80 backdrop-blur-sm text-xs font-medium rounded text-muted-foreground border border-border shadow-sm">
+                      {resume.template_id}
+                    </span>
+                    <span className="px-2 py-1 bg-background/80 backdrop-blur-sm text-xs font-medium rounded text-muted-foreground border border-border shadow-sm uppercase tracking-wider">
+                      {resume.status}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-5 flex-1 flex flex-col">
+                  <h4 className="font-semibold text-foreground text-lg mb-1 line-clamp-1 group-hover:text-primary transition-colors">
+                    {resume.title}
+                  </h4>
+                  <div className="flex items-center text-xs text-muted-foreground mb-4">
+                    <Clock className="w-3 h-3 mr-1" />
+                    Updated {new Date(resume.updated_at).toLocaleDateString()}
+                  </div>
+                  
+                  <div className="mt-auto pt-4 border-t border-border flex items-center gap-2">
+                    <Link href={`/builder?id=${resume.id}`} className="flex-1">
+                      <Button variant="outline" className="w-full bg-background hover:bg-muted text-sm shadow-sm h-9">
+                        Edit
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="app/(dashboard)/resumes/page.tsx">
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FileText, Search, Filter, Clock } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
+import Link from "next/link";
+import { currentUser } from "@clerk/nextjs/server";
+import { getUserResumes } from "@/lib/supabase/resumes";
+import { Card } from "@/components/ui/card";
+import { DeleteResumeButton } from "@/components/resumes/delete-button";
+
+export default async function ResumesPage() {
+  const user = await currentUser();
+  const userId = user?.id;
+
+  if (!userId) {
+    return <div>Not signed in</div>;
+  }
+
+  const allResumes = await getUserResumes(userId);
+
+  return (
+    <div className="space-y-6 max-w-6xl mx-auto pb-10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">My Resumes</h2>
+          <p className="text-muted-foreground mt-1">
+            Manage your resumes, drafts, and optimized variants.
+          </p>
+        </div>
+        <Link href="/builder?new=1">
+          <Button className="bg-primary text-primary-foreground shadow-sm">
+            Create New Resume
+          </Button>
+        </Link>
+      </div>
+
+      {/* Filters and Search */}
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-card p-4 rounded-lg border border-border shadow-sm">
+        <div className="w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0 hide-scrollbar">
+          <Tabs defaultValue="all" className="w-full sm:w-auto">
+            <TabsList>
+              <TabsTrigger value="all">All Resumes</TabsTrigger>
+              <TabsTrigger value="published">Published</TabsTrigger>
+              <TabsTrigger value="drafts">Drafts</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+        
+        <div className="flex w-full sm:w-auto gap-2">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search resumes..."
+              className="w-full pl-9 bg-background"
+              // TODO: Implement client-side filtering later
+            />
+          </div>
+          <Button variant="outline" size="icon" className="shrink-0 bg-background">
+            <Filter className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Resumes Content */}
+      {allResumes.length === 0 ? (
+        <EmptyState
+          title="No resumes yet"
+          description="Create your first AI-powered resume to get started."
+          icon={<FileText className="w-8 h-8" />}
+          action={
+            <Link href="/builder?new=1">
+              <Button className="bg-primary text-primary-foreground shadow-sm">
+                Create Resume
+              </Button>
+            </Link>
+          }
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {allResumes.map((resume) => (
+            <Card key={resume.id} className="flex flex-col border-border shadow-sm hover:border-primary/50 transition-colors overflow-hidden group">
+              <div className="h-32 bg-muted relative border-b border-border p-4 flex flex-col justify-end">
+                <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary via-transparent to-transparent"></div>
+                <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] bg-center opacity-5"></div>
+                <div className="relative z-10 flex items-center justify-between">
+                  <span className="px-2 py-1 bg-background/80 backdrop-blur-sm text-xs font-medium rounded text-muted-foreground border border-border shadow-sm">
+                    {resume.template_id}
+                  </span>
+                  <span className="px-2 py-1 bg-background/80 backdrop-blur-sm text-xs font-medium rounded text-muted-foreground border border-border shadow-sm uppercase tracking-wider">
+                    {resume.status}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-5 flex-1 flex flex-col">
+                <h4 className="font-semibold text-foreground text-lg mb-1 line-clamp-1 group-hover:text-primary transition-colors">
+                  {resume.title}
+                </h4>
+                <div className="flex items-center text-xs text-muted-foreground mb-4">
+                  <Clock className="w-3 h-3 mr-1" />
+                  Updated {new Date(resume.updated_at).toLocaleDateString()}
+                </div>
+                
+                <div className="mt-auto pt-4 border-t border-border flex items-center gap-2">
+                  <Link href={`/builder?id=${resume.id}`} className="flex-1">
+                    <Button variant="outline" className="w-full bg-background hover:bg-muted text-sm shadow-sm h-9">
+                      Edit
+                    </Button>
+                  </Link>
+                  <DeleteResumeButton id={resume.id} />
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+</file>
+
 <file path="app/layout.tsx">
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
@@ -6326,6 +6554,171 @@ export default function RootLayout({
 }
 </file>
 
+<file path="app/page.tsx">
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import { TopNavbar } from "@/components/layout/top-navbar";
+import { Footer } from "@/components/layout/footer";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+
+export default async function LandingPage() {
+  const { userId } = await auth();
+  if (userId) redirect("/dashboard");
+
+  return (
+    <div className="min-h-screen flex flex-col bg-background selection:bg-primary/20">
+      <TopNavbar />
+      
+      <main className="flex-1 flex items-center pt-24 pb-32 md:pt-32 md:pb-64">
+        <div className="container mx-auto px-4 md:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-8 items-center">
+            
+            {/* Left Column: Copy & CTA */}
+            <div className="max-w-xl">
+              <h1 className="font-heading font-extrabold text-5xl md:text-6xl text-foreground leading-[1.1] mb-6">
+                Build ATS-Friendly<br />Resumes with AI
+              </h1>
+              
+              <p className="text-lg md:text-xl text-muted-foreground mb-10 leading-relaxed pr-4">
+                Generate professional ATS-optimized resumes in seconds. Impress recruiters and beat Applicant Tracking Systems with our intelligent resume builder.
+              </p>
+              
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <Link href="/sign-up" className="w-full sm:w-auto">
+                  <Button size="lg" className="w-full sm:w-auto h-12 px-8 text-base bg-primary hover:bg-primary/90 text-primary-foreground rounded-md shadow-sm">
+                    Start Building Free
+                  </Button>
+                </Link>
+                <Link href="/templates" className="w-full sm:w-auto">
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto h-12 px-8 text-base border-border text-foreground hover:bg-accent rounded-md font-medium">
+                    View Templates
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            {/* Right Column: macOS Window Mockup */}
+            <div className="relative w-full max-w-lg mx-auto lg:ml-auto lg:mr-0 pl-0 lg:pl-8">
+              {/* Optional subtle background glow if needed, but the design looks very clean/white */}
+              <div className="relative rounded-xl border border-border/60 bg-card shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] overflow-hidden">
+                
+                {/* macOS Header */}
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-border/50 bg-muted/30">
+                  <div className="flex gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
+                    <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
+                    <div className="w-3 h-3 rounded-full bg-[#27C93F]" />
+                  </div>
+                </div>
+                
+                {/* Window Body (Resume Content) */}
+                <div className="p-8 md:p-10 bg-background relative min-h-[380px] flex flex-col gap-6">
+                  {/* Abstract Resume Lines */}
+                  <div className="space-y-3">
+                    <div className="w-1/3 h-4 bg-muted rounded-md mb-6" />
+                    <div className="w-full h-2 bg-muted/60 rounded-md" />
+                    <div className="w-5/6 h-2 bg-muted/60 rounded-md" />
+                    <div className="w-4/6 h-2 bg-muted/60 rounded-md" />
+                  </div>
+
+                  <div className="space-y-3 pt-4">
+                    <div className="w-1/4 h-3 bg-muted rounded-md mb-4" />
+                    <div className="w-full h-2 bg-muted/60 rounded-md" />
+                    <div className="w-full h-2 bg-muted/60 rounded-md" />
+                    <div className="w-3/4 h-2 bg-muted/60 rounded-md" />
+                  </div>
+
+                  <div className="space-y-3 pt-4">
+                    <div className="w-1/4 h-3 bg-muted rounded-md mb-4" />
+                    <div className="w-full h-2 bg-muted/60 rounded-md" />
+                    <div className="w-5/6 h-2 bg-muted/60 rounded-md" />
+                  </div>
+
+                  {/* Overlay Button */}
+                  <div className="absolute inset-0 bg-background/40 backdrop-blur-[2px] flex items-center justify-center">
+                    <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg h-12 px-8 rounded-full text-base font-medium transition-transform hover:scale-105">
+                      Analyze Resume
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </main>
+      
+      <Footer />
+    </div>
+  );
+}
+</file>
+
+<file path="components/layout/top-app-bar.tsx">
+"use client";
+
+import { Bell, Search, Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { SideNavbar } from "./side-navbar";
+import { UserButton } from "@clerk/nextjs";
+
+interface TopAppBarProps {
+  title?: string;
+}
+
+export function TopAppBar({ title = "Dashboard" }: TopAppBarProps) {
+  return (
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6">
+      <div className="flex items-center gap-4">
+        {/* Mobile Sidebar Trigger */}
+        <div className="md:hidden">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-64">
+              <SideNavbar className="w-full" />
+            </SheetContent>
+          </Sheet>
+        </div>
+        
+        <h1 className="text-lg font-semibold text-foreground hidden sm:block">
+          {title}
+        </h1>
+      </div>
+
+      <div className="flex items-center gap-4 flex-1 justify-end">
+        {/* Search Bar - hidden on very small screens */}
+        <div className="relative w-full max-w-sm hidden md:flex items-center">
+          <Search className="absolute left-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search resumes..."
+            className="w-full pl-9 bg-muted/50 border-transparent focus-visible:bg-background focus-visible:border-ring"
+          />
+        </div>
+
+        {/* Action Buttons */}
+        <Button variant="ghost" size="icon" className="relative text-muted-foreground">
+          <Bell className="h-5 w-5" />
+          <span className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-destructive"></span>
+          <span className="sr-only">Notifications</span>
+        </Button>
+
+        {/* User Profile */}
+        <UserButton />
+      </div>
+    </header>
+  );
+}
+</file>
+
 <file path="components/layout/side-navbar.tsx">
 "use client";
 
@@ -6349,7 +6742,7 @@ export const DASHBOARD_SIDEBAR_WIDTH = "w-64";
 const mainNavItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "My Resumes", href: "/resumes", icon: FileText },
-  { label: "Create Resume", href: "/builder", icon: FilePlus2 },
+  { label: "Create Resume", href: "/builder?new=1", icon: FilePlus2 },
   { label: "Templates", href: "/templates", icon: LayoutTemplate },
 ];
 
@@ -6385,7 +6778,7 @@ export function SideNavbar({ className }: { className?: string }) {
 
       {/* New Resume CTA */}
       <div className="px-4 mb-6">
-        <Link href="/builder">
+        <Link href="/builder?new=1">
           <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm">
             <FilePlus2 className="mr-2 w-4 h-4" />
             New Resume
@@ -6453,70 +6846,6 @@ export function SideNavbar({ className }: { className?: string }) {
         </div>
       </div>
     </aside>
-  );
-}
-</file>
-
-<file path="components/layout/top-app-bar.tsx">
-"use client";
-
-import { Bell, Search, Menu } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { SideNavbar } from "./side-navbar";
-import { UserButton } from "@clerk/nextjs";
-
-interface TopAppBarProps {
-  title?: string;
-}
-
-export function TopAppBar({ title = "Dashboard" }: TopAppBarProps) {
-  return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6">
-      <div className="flex items-center gap-4">
-        {/* Mobile Sidebar Trigger */}
-        <div className="md:hidden">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden">
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Toggle menu</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-64">
-              <SideNavbar className="w-full" />
-            </SheetContent>
-          </Sheet>
-        </div>
-        
-        <h1 className="text-lg font-semibold text-foreground hidden sm:block">
-          {title}
-        </h1>
-      </div>
-
-      <div className="flex items-center gap-4 flex-1 justify-end">
-        {/* Search Bar - hidden on very small screens */}
-        <div className="relative w-full max-w-sm hidden md:flex items-center">
-          <Search className="absolute left-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search resumes..."
-            className="w-full pl-9 bg-muted/50 border-transparent focus-visible:bg-background focus-visible:border-ring"
-          />
-        </div>
-
-        {/* Action Buttons */}
-        <Button variant="ghost" size="icon" className="relative text-muted-foreground">
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-destructive"></span>
-          <span className="sr-only">Notifications</span>
-        </Button>
-
-        {/* User Profile */}
-        <UserButton />
-      </div>
-    </header>
   );
 }
 </file>

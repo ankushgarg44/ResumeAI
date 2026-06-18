@@ -59,9 +59,12 @@ function BuilderContent() {
         ? `${builder.resumeData.personalInfo.fullName} Resume`
         : "Untitled Resume";
       
+      const currentData = builder.resumeData;
+      console.log("[Builder] Saving resume_data:", JSON.stringify(currentData, null, 2));
       await builder.saveToDatabase(
         title,
-        selectedTemplateId || "ats-professional"
+        selectedTemplateId || "ats-professional",
+        currentData
       );
     } catch (error) {
       console.error("Failed to save resume:", error);

@@ -21,6 +21,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Resume not found" }, { status: 404 });
     }
 
+    console.log("[API] Resume fetched:", JSON.stringify(resume?.resume_data, null, 2));
+
     return NextResponse.json(resume);
   } catch (error) {
     console.error("[GET /api/resumes/[id]]", error);

@@ -70,6 +70,8 @@ export async function saveResume(
   if (resumeData.resume_data !== undefined) updates.resume_data = resumeData.resume_data;
   if (resumeData.status !== undefined) updates.status = resumeData.status;
 
+  console.log("[DB] saveResume payload:", JSON.stringify(updates.resume_data, null, 2));
+
   const { data, error } = await serverSupabase
     .from("resumes")
     .update(updates)

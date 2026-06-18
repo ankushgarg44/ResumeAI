@@ -117,8 +117,20 @@ export function useResumeBuilder(templateId: string | null) {
           if (res.ok) {
             const data = await res.json();
             if (data.resume_data) {
-              // Ensure we merge with empty so no fields are completely missing
-              setResumeData((prev) => ({ ...getEmptyResumeData(), ...data.resume_data }));
+              const empty = getEmptyResumeData();
+              const loaded = data.resume_data as Partial<ResumeData>;
+              setResumeData({
+                personalInfo: { ...empty.personalInfo, ...(loaded.personalInfo ?? {}) },
+                education: loaded.education ?? empty.education,
+                coursework: loaded.coursework ?? empty.coursework,
+                experience: loaded.experience ?? empty.experience,
+                projects: loaded.projects ?? empty.projects,
+                technicalSkills: {
+                  ...empty.technicalSkills,
+                  ...(loaded.technicalSkills ?? {}),
+                },
+                leadership: loaded.leadership ?? empty.leadership,
+              });
             }
             if (data.template_id) {
               setLoadedTemplateId(data.template_id);
@@ -194,11 +206,12 @@ export function useResumeBuilder(templateId: string | null) {
   }, []);
 
   const saveToDatabase = useCallback(
-    async (title: string, currentTemplateId: string) => {
+    async (title: string, currentTemplateId: string, dataToSave?: ResumeData) => {
       setIsSaving(true);
       try {
         const url = resumeId ? `/api/resumes/${resumeId}` : "/api/resumes";
         const method = resumeId ? "PATCH" : "POST";
+        const payload = dataToSave ?? resumeData;
         
         const res = await fetch(url, {
           method,
@@ -206,7 +219,7 @@ export function useResumeBuilder(templateId: string | null) {
           body: JSON.stringify({
             title,
             template_id: currentTemplateId,
-            resume_data: resumeData,
+            resume_data: payload,
             status: "published",
           }),
         });
