@@ -59,48 +59,6 @@ export const TEMPLATE_CONFIGS: Record<string, TemplateConfig> = {
     requiredPersonalInfoFields: ["fullName", "email"],
   },
 
-  "modern-technical": {
-    id: "modern-technical",
-    name: "Modern Technical",
-    description:
-      "Developer-focused template emphasizing skills, projects, and GitHub. Ideal for software engineers and technical roles.",
-    badge: "Developer",
-    badgeColor: {
-      bg: "bg-blue-100 dark:bg-blue-950/30",
-      text: "text-blue-700 dark:text-blue-400",
-      border: "border-blue-200 dark:border-blue-800",
-    },
-    sections: [
-      "personal-info",
-      "education",
-      "experience",
-      "projects",
-      "technical-skills",
-    ],
-    personalInfoFields: ["fullName", "address", "phone", "email", "linkedIn", "github"],
-    requiredPersonalInfoFields: ["fullName", "email", "github"],
-  },
-
-  "corporate-executive": {
-    id: "corporate-executive",
-    name: "Corporate Executive",
-    description:
-      "Experience-first template designed for business, management, and executive roles. Highlights leadership and career trajectory.",
-    badge: "Executive",
-    badgeColor: {
-      bg: "bg-amber-100 dark:bg-amber-950/30",
-      text: "text-amber-700 dark:text-amber-400",
-      border: "border-amber-200 dark:border-amber-800",
-    },
-    sections: [
-      "personal-info",
-      "education",
-      "experience",
-      "leadership",
-    ],
-    personalInfoFields: ["fullName", "address", "phone", "email", "linkedIn"],
-    requiredPersonalInfoFields: ["fullName", "email"],
-  },
 };
 
 // ─── Helpers ─────────────────────────────────────────────
