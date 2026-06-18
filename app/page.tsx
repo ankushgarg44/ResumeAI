@@ -1,9 +1,14 @@
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 import { TopNavbar } from "@/components/layout/top-navbar";
 import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const { userId } = await auth();
+  if (userId) redirect("/dashboard");
+
   return (
     <div className="min-h-screen flex flex-col bg-background selection:bg-primary/20">
       <TopNavbar />

@@ -20,7 +20,7 @@ export const DASHBOARD_SIDEBAR_WIDTH = "w-64";
 const mainNavItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "My Resumes", href: "/resumes", icon: FileText },
-  { label: "Create Resume", href: "/builder", icon: FilePlus2 },
+  { label: "Create Resume", href: "/builder?new=1", icon: FilePlus2 },
   { label: "Templates", href: "/templates", icon: LayoutTemplate },
 ];
 
@@ -56,7 +56,7 @@ export function SideNavbar({ className }: { className?: string }) {
 
       {/* New Resume CTA */}
       <div className="px-4 mb-6">
-        <Link href="/builder">
+        <Link href="/builder?new=1">
           <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm">
             <FilePlus2 className="mr-2 w-4 h-4" />
             New Resume

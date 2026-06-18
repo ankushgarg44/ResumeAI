@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback, Suspense } from "react";
+import { useState, useRef, useCallback, Suspense, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
@@ -21,15 +22,27 @@ import { TemplateSelectionStep } from "@/components/forms/template-selection-ste
 import { GeneratingScreen } from "@/components/forms/generating-screen";
 import { SuccessScreen } from "@/components/forms/success-screen";
 import { ATSTemplate } from "@/components/resume-templates/ats-template";
+import { ModernTwoColumnTemplate } from "@/components/resume-templates/modern-two-column-template";
 
 type BuilderPhase = "editing" | "generating" | "success";
 
 function BuilderContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const resumeId = searchParams?.get("id");
+  const templateParam = searchParams?.get("template");
+
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
-    "ats-professional"
+    resumeId ? null : (templateParam || "ats-professional")
   );
 
   const builder = useResumeBuilder(selectedTemplateId);
+
+  useEffect(() => {
+    if (builder.loadedTemplateId) {
+      setSelectedTemplateId(builder.loadedTemplateId);
+    }
+  }, [builder.loadedTemplateId]);
   const templateRef = useRef<HTMLDivElement>(null);
   const { generatePDF } = usePdfGenerator(templateRef);
 
@@ -69,8 +82,9 @@ function BuilderContent() {
   const handleCreateAnother = useCallback(() => {
     builder.resetBuilder();
     setPhase("editing");
-    setSelectedTemplateId("ats-professional");
-  }, [builder]);
+    setSelectedTemplateId(null);
+    router.push("/builder?new=1");
+  }, [builder, router]);
 
   const handleTemplateSelect = useCallback(
     (id: string) => {
@@ -173,7 +187,12 @@ function BuilderContent() {
         }}
         aria-hidden="true"
       >
-        <ATSTemplate ref={templateRef} data={builder.resumeData} />
+        {selectedTemplateId === "ats-professional" && (
+          <ATSTemplate ref={templateRef} data={builder.resumeData} />
+        )}
+        {selectedTemplateId === "modern-two-column" && (
+          <ModernTwoColumnTemplate ref={templateRef} data={builder.resumeData} />
+        )}
       </div>
 
       {/* Phase: Generating */}

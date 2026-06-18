@@ -6,6 +6,7 @@ import { CheckCircle, FileText, GraduationCap, Briefcase, Code, Award, BookOpen,
 import { cn } from "@/lib/utils";
 import { TEMPLATE_CONFIGS, getTemplateIds } from "@/lib/template-configs";
 import type { FormSectionKey } from "@/lib/template-configs";
+import Image from "next/image";
 
 interface TemplateSelectionStepProps {
   selectedTemplateId: string | null;
@@ -33,36 +34,6 @@ const SECTION_LABELS: Record<FormSectionKey, string> = {
   "leadership": "Leadership",
 };
 
-// Skeleton section blocks for the mini preview — shows which sections a template includes
-function MiniSkeletonPreview({ sections }: { sections: FormSectionKey[] }) {
-  return (
-    <div className="space-y-2.5 h-full flex flex-col">
-      {/* Name header — always present */}
-      <div className="text-center space-y-1 pb-2 border-b border-gray-200">
-        <div className="h-4 w-2/5 bg-gray-800 rounded mx-auto" />
-        <div className="h-1.5 w-3/5 bg-gray-300 rounded mx-auto" />
-        <div className="h-1.5 w-4/5 bg-gray-300 rounded mx-auto" />
-      </div>
-
-      {sections
-        .filter((s) => s !== "personal-info")
-        .map((section) => (
-          <div key={section} className="space-y-1">
-            {/* Section heading + line */}
-            <div className="flex items-center gap-1.5">
-              <div className="h-2 w-14 bg-gray-700 rounded" />
-              <div className="flex-1 h-px bg-gray-300" />
-            </div>
-            {/* Content lines */}
-            <div className="pl-2 space-y-0.5">
-              <div className="h-1 w-full bg-gray-200 rounded" />
-              <div className="h-1 w-4/5 bg-gray-200 rounded" />
-            </div>
-          </div>
-        ))}
-    </div>
-  );
-}
 
 export function TemplateSelectionStep({
   selectedTemplateId,
@@ -96,8 +67,15 @@ export function TemplateSelectionStep({
               onClick={() => onSelect(id)}
             >
               {/* Mini preview */}
-              <div className="aspect-[1/1.2] bg-white p-4 relative">
-                <MiniSkeletonPreview sections={config.sections} />
+              <div className="aspect-[1/1.2] bg-white relative overflow-hidden">
+                <Image
+                  src={config.previewImage}
+                  alt={`${config.name} preview`}
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  priority
+                  className="object-cover object-top"
+                />
 
                 {isSelected && (
                   <div className="absolute top-2 right-2">

@@ -12,6 +12,7 @@ export interface TemplateConfig {
   sections: FormSectionKey[];
   personalInfoFields: (keyof ResumePersonalInfo)[];
   requiredPersonalInfoFields: (keyof ResumePersonalInfo)[];
+  previewImage: string;
 }
 
 export interface StepInfo {
@@ -57,8 +58,32 @@ export const TEMPLATE_CONFIGS: Record<string, TemplateConfig> = {
     ],
     personalInfoFields: ["fullName", "address", "phone", "email", "linkedIn", "github"],
     requiredPersonalInfoFields: ["fullName", "email"],
+    previewImage: "/templates/ats-professional.png",
   },
 
+  "modern-two-column": {
+    id: "modern-two-column",
+    name: "Modern Two-Column",
+    description:
+      "A clean, modern two-column layout that highlights education and skills on the left, with experience and projects on the right.",
+    badge: "Modern",
+    badgeColor: {
+      bg: "bg-blue-100 dark:bg-blue-950/30",
+      text: "text-blue-700 dark:text-blue-400",
+      border: "border-blue-200 dark:border-blue-800",
+    },
+    sections: [
+      "personal-info",
+      "education",
+      "coursework",
+      "experience",
+      "projects",
+      "technical-skills",
+    ],
+    personalInfoFields: ["fullName", "address", "phone", "email", "linkedIn", "github"],
+    requiredPersonalInfoFields: ["fullName", "email"],
+    previewImage: "/templates/modern-two-column.png",
+  },
 };
 
 // ─── Helpers ─────────────────────────────────────────────

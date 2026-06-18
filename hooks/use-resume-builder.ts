@@ -88,12 +88,14 @@ export function createEmptyLeadership(): ResumeLeadership {
 export function useResumeBuilder(templateId: string | null) {
   const searchParams = useSearchParams();
   const resumeId = searchParams?.get("id");
+  const isNew = searchParams?.get("new") === "1";
 
   const [resumeData, setResumeData] = useState<ResumeData>(getEmptyResumeData);
   const [currentStep, setCurrentStep] = useState(0);
   const [hydrated, setHydrated] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(!!resumeId);
+  const [loadedTemplateId, setLoadedTemplateId] = useState<string | null>(null);
 
   // Derive steps dynamically from the selected template
   const steps: StepInfo[] = useMemo(
@@ -118,6 +120,9 @@ export function useResumeBuilder(templateId: string | null) {
               // Ensure we merge with empty so no fields are completely missing
               setResumeData((prev) => ({ ...getEmptyResumeData(), ...data.resume_data }));
             }
+            if (data.template_id) {
+              setLoadedTemplateId(data.template_id);
+            }
           }
         } catch (error) {
           console.error("Failed to load resume from API", error);
@@ -125,6 +130,10 @@ export function useResumeBuilder(templateId: string | null) {
           setIsLoading(false);
           setHydrated(true);
         }
+      } else if (isNew) {
+        setResumeData(getEmptyResumeData());
+        setIsLoading(false);
+        setHydrated(true);
       } else {
         try {
           const saved = localStorage.getItem(STORAGE_KEY);
@@ -224,6 +233,7 @@ export function useResumeBuilder(templateId: string | null) {
     saveToDatabase,
     isSaving,
     isLoading,
+    loadedTemplateId,
     totalSteps: steps.length,
     currentStepInfo: steps[currentStep] ?? steps[0],
     isFirstStep: currentStep === 0,

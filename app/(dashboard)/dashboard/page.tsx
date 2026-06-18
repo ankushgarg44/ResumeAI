@@ -113,7 +113,7 @@ export default async function DashboardPage() {
             description="Create your first AI-powered resume to get started."
             icon={<FileText className="w-8 h-8" />}
             action={
-              <Link href="/builder">
+              <Link href="/builder?new=1">
                 <Button className="bg-primary text-primary-foreground shadow-sm">
                   Create Resume
                 </Button>
