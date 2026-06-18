@@ -25,7 +25,6 @@ export const ModernTwoColumnTemplate = forwardRef<HTMLDivElement, { data: Resume
 
     // Contact string parts
     const contactParts = [];
-    if (personalInfo?.website) contactParts.push(personalInfo.website);
     if (personalInfo?.email) contactParts.push(personalInfo.email);
     if (personalInfo?.phone) contactParts.push(personalInfo.phone);
     if (personalInfo?.address) contactParts.push(personalInfo.address);
