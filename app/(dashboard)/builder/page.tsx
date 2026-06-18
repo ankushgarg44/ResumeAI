@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-import { useResumeBuilder, BUILDER_STEPS } from "@/hooks/use-resume-builder";
+import { useResumeBuilder } from "@/hooks/use-resume-builder";
 import { usePdfGenerator } from "@/hooks/use-pdf-generator";
+import { getTemplateConfig } from "@/lib/template-configs";
 
 import { PersonalInfoStep } from "@/components/forms/personal-info-step";
 import { EducationStep } from "@/components/forms/education-step";
@@ -23,22 +24,38 @@ import { ATSTemplate } from "@/components/resume-templates/ats-template";
 
 type BuilderPhase = "editing" | "generating" | "success";
 
-export default function BuilderPage() {
-  const builder = useResumeBuilder();
+function BuilderContent() {
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+    "ats-professional"
+  );
+
+  const builder = useResumeBuilder(selectedTemplateId);
   const templateRef = useRef<HTMLDivElement>(null);
   const { generatePDF } = usePdfGenerator(templateRef);
 
   const [phase, setPhase] = useState<BuilderPhase>("editing");
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
-    "ats-professional"
-  );
+
+  const templateConfig = getTemplateConfig(selectedTemplateId);
 
   const progress =
     ((builder.currentStep + 1) / builder.totalSteps) * 100;
 
   const handleGenerate = useCallback(async () => {
+    try {
+      const title = builder.resumeData.personalInfo.fullName 
+        ? `${builder.resumeData.personalInfo.fullName} Resume`
+        : "Untitled Resume";
+      
+      await builder.saveToDatabase(
+        title,
+        selectedTemplateId || "ats-professional"
+      );
+    } catch (error) {
+      console.error("Failed to save resume:", error);
+      // We still proceed to generating so the user can download their PDF even if DB save fails
+    }
     setPhase("generating");
-  }, []);
+  }, [builder, selectedTemplateId]);
 
   const handleGenerateComplete = useCallback(async () => {
     await generatePDF();
@@ -55,14 +72,95 @@ export default function BuilderPage() {
     setSelectedTemplateId("ats-professional");
   }, [builder]);
 
-  // Don't render until localStorage has been hydrated
-  if (!builder.hydrated) {
+  const handleTemplateSelect = useCallback(
+    (id: string) => {
+      setSelectedTemplateId(id);
+      // If user is on step 0 (template selection), stay there.
+      // If they switched mid-way, clamp step to step 1 (first form step)
+      // so they review their data in the new step order.
+      if (builder.currentStep > 0) {
+        builder.goToStep(1);
+      }
+    },
+    [builder]
+  );
+
+  // Don't render until localStorage has been hydrated and API fetch is complete
+  if (!builder.hydrated || builder.isLoading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
       </div>
     );
   }
+
+  // Render the step component for a given step key
+  const renderStep = () => {
+    const key = builder.currentStepInfo.key;
+
+    switch (key) {
+      case "template":
+        return (
+          <TemplateSelectionStep
+            selectedTemplateId={selectedTemplateId}
+            onSelect={handleTemplateSelect}
+          />
+        );
+      case "personal-info":
+        return (
+          <PersonalInfoStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+            visibleFields={templateConfig.personalInfoFields}
+            requiredFields={templateConfig.requiredPersonalInfoFields}
+          />
+        );
+      case "education":
+        return (
+          <EducationStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      case "coursework":
+        return (
+          <CourseworkStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      case "experience":
+        return (
+          <ExperienceStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      case "projects":
+        return (
+          <ProjectsStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      case "technical-skills":
+        return (
+          <TechnicalSkillsStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      case "leadership":
+        return (
+          <LeadershipStep
+            data={builder.resumeData}
+            onChange={builder.updateResumeData}
+          />
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-80px)] -m-4 md:-m-6">
@@ -107,7 +205,7 @@ export default function BuilderPage() {
             <div className="max-w-3xl mx-auto">
               {/* Step indicators */}
               <div className="hidden sm:flex justify-between mb-3">
-                {BUILDER_STEPS.map((step, idx) => (
+                {builder.steps.map((step, idx) => (
                   <button
                     key={step.key}
                     onClick={() => builder.goToStep(idx)}
@@ -151,54 +249,7 @@ export default function BuilderPage() {
           <div className="flex-1 overflow-y-auto p-4 md:p-6">
             <div className="max-w-3xl mx-auto">
               {/* Step content */}
-              {builder.currentStepInfo.key === "personal-info" && (
-                <PersonalInfoStep
-                  data={builder.resumeData}
-                  onChange={builder.updateResumeData}
-                />
-              )}
-              {builder.currentStepInfo.key === "education" && (
-                <EducationStep
-                  data={builder.resumeData}
-                  onChange={builder.updateResumeData}
-                />
-              )}
-              {builder.currentStepInfo.key === "coursework" && (
-                <CourseworkStep
-                  data={builder.resumeData}
-                  onChange={builder.updateResumeData}
-                />
-              )}
-              {builder.currentStepInfo.key === "experience" && (
-                <ExperienceStep
-                  data={builder.resumeData}
-                  onChange={builder.updateResumeData}
-                />
-              )}
-              {builder.currentStepInfo.key === "projects" && (
-                <ProjectsStep
-                  data={builder.resumeData}
-                  onChange={builder.updateResumeData}
-                />
-              )}
-              {builder.currentStepInfo.key === "technical-skills" && (
-                <TechnicalSkillsStep
-                  data={builder.resumeData}
-                  onChange={builder.updateResumeData}
-                />
-              )}
-              {builder.currentStepInfo.key === "leadership" && (
-                <LeadershipStep
-                  data={builder.resumeData}
-                  onChange={builder.updateResumeData}
-                />
-              )}
-              {builder.currentStepInfo.key === "template" && (
-                <TemplateSelectionStep
-                  selectedTemplateId={selectedTemplateId}
-                  onSelect={setSelectedTemplateId}
-                />
-              )}
+              {renderStep()}
 
               {/* Navigation buttons */}
               <div className="flex items-center justify-between mt-10 pb-6">
@@ -236,5 +287,17 @@ export default function BuilderPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function BuilderPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="animate-pulse text-muted-foreground">Loading Builder...</div>
+      </div>
+    }>
+      <BuilderContent />
+    </Suspense>
   );
 }

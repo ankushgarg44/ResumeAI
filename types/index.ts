@@ -75,19 +75,14 @@ export interface Project {
 // ---------- Resume ----------
 export interface Resume {
   id: string;
+  user_id: string;
   title: string;
-  templateId: string;
-  templateName: string;
+  template_id: string;
+  resume_data: ResumeData;
+  ats_score: number | null;
   status: "draft" | "published";
-  atsScore: number | null;
-  personalInfo: PersonalInfo;
-  workExperience: WorkExperience[];
-  education: Education[];
-  skills: Skill[];
-  certifications: Certification[];
-  projects: Project[];
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // ---------- Resume Template ----------

@@ -3,7 +3,7 @@
 // Ready for OpenAI, Clerk, and PDF export integration
 // ==========================================
 
-import type { Resume, ATSAnalysis } from "@/types";
+import type { Resume, ATSAnalysis, ResumeData } from "@/types";
 
 /**
  * Generate resume content from free-form text using AI.
@@ -11,7 +11,7 @@ import type { Resume, ATSAnalysis } from "@/types";
  */
 export async function generateResumeContent(
   freeText: string
-): Promise<Partial<Resume>> {
+): Promise<Partial<ResumeData>> {
   // TODO: Integrate with OpenAI API
   // const response = await openai.chat.completions.create({
   //   model: "gpt-4",
@@ -26,10 +26,9 @@ export async function generateResumeContent(
           fullName: "Generated Name",
           email: "user@example.com",
           phone: "+1 (555) 000-0000",
-          location: "San Francisco, CA",
-          currentRole: "Software Engineer",
-          summary:
-            "AI-generated summary based on your input. This would be populated by OpenAI.",
+          address: "San Francisco, CA",
+          linkedIn: "",
+          github: "",
         },
       });
     }, 1500);

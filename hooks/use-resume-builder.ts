@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import type {
   ResumeData,
   ResumeEducation,
@@ -8,6 +9,8 @@ import type {
   ResumeProject,
   ResumeLeadership,
 } from "@/types";
+import { getStepsForTemplate } from "@/lib/template-configs";
+import type { StepInfo } from "@/lib/template-configs";
 
 const STORAGE_KEY = "resumeai-draft";
 
@@ -82,36 +85,63 @@ export function createEmptyLeadership(): ResumeLeadership {
   };
 }
 
-export const BUILDER_STEPS = [
-  { key: "personal-info" as const, label: "Personal Info", number: 1 },
-  { key: "education" as const, label: "Education", number: 2 },
-  { key: "coursework" as const, label: "Coursework", number: 3 },
-  { key: "experience" as const, label: "Experience", number: 4 },
-  { key: "projects" as const, label: "Projects", number: 5 },
-  { key: "technical-skills" as const, label: "Skills", number: 6 },
-  { key: "leadership" as const, label: "Leadership", number: 7 },
-  { key: "template" as const, label: "Template", number: 8 },
-] as const;
+export function useResumeBuilder(templateId: string | null) {
+  const searchParams = useSearchParams();
+  const resumeId = searchParams?.get("id");
 
-export function useResumeBuilder() {
   const [resumeData, setResumeData] = useState<ResumeData>(getEmptyResumeData);
   const [currentStep, setCurrentStep] = useState(0);
   const [hydrated, setHydrated] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(!!resumeId);
 
-  // Restore from localStorage on mount
+  // Derive steps dynamically from the selected template
+  const steps: StepInfo[] = useMemo(
+    () => getStepsForTemplate(templateId),
+    [templateId]
+  );
+
+  // Clamp currentStep when steps array changes (template switch)
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.resumeData) setResumeData(parsed.resumeData);
-        if (typeof parsed.currentStep === "number") setCurrentStep(parsed.currentStep);
+    setCurrentStep((prev) => Math.min(prev, steps.length - 1));
+  }, [steps.length]);
+
+  // Load from API if ID is present, else restore from localStorage
+  useEffect(() => {
+    async function init() {
+      if (resumeId) {
+        try {
+          const res = await fetch(`/api/resumes/${resumeId}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.resume_data) {
+              // Ensure we merge with empty so no fields are completely missing
+              setResumeData((prev) => ({ ...getEmptyResumeData(), ...data.resume_data }));
+            }
+          }
+        } catch (error) {
+          console.error("Failed to load resume from API", error);
+        } finally {
+          setIsLoading(false);
+          setHydrated(true);
+        }
+      } else {
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.resumeData) setResumeData(parsed.resumeData);
+            if (typeof parsed.currentStep === "number") setCurrentStep(parsed.currentStep);
+          }
+        } catch {
+          // ignore parse errors
+        }
+        setIsLoading(false);
+        setHydrated(true);
       }
-    } catch {
-      // ignore parse errors
     }
-    setHydrated(true);
-  }, []);
+    init();
+  }, [resumeId]);
 
   // Auto-save to localStorage on changes
   useEffect(() => {
@@ -119,12 +149,12 @@ export function useResumeBuilder() {
     try {
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ resumeData, currentStep })
+        JSON.stringify({ resumeData, currentStep, templateId })
       );
     } catch {
       // ignore quota errors
     }
-  }, [resumeData, currentStep, hydrated]);
+  }, [resumeData, currentStep, templateId, hydrated]);
 
   const updateResumeData = useCallback(
     (updater: (prev: ResumeData) => ResumeData) => {
@@ -134,16 +164,19 @@ export function useResumeBuilder() {
   );
 
   const nextStep = useCallback(() => {
-    setCurrentStep((prev) => Math.min(prev + 1, BUILDER_STEPS.length - 1));
-  }, []);
+    setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
+  }, [steps.length]);
 
   const prevStep = useCallback(() => {
     setCurrentStep((prev) => Math.max(prev - 1, 0));
   }, []);
 
-  const goToStep = useCallback((step: number) => {
-    setCurrentStep(Math.max(0, Math.min(step, BUILDER_STEPS.length - 1)));
-  }, []);
+  const goToStep = useCallback(
+    (step: number) => {
+      setCurrentStep(Math.max(0, Math.min(step, steps.length - 1)));
+    },
+    [steps.length]
+  );
 
   const resetBuilder = useCallback(() => {
     setResumeData(getEmptyResumeData());
@@ -151,18 +184,49 @@ export function useResumeBuilder() {
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
+  const saveToDatabase = useCallback(
+    async (title: string, currentTemplateId: string) => {
+      setIsSaving(true);
+      try {
+        const url = resumeId ? `/api/resumes/${resumeId}` : "/api/resumes";
+        const method = resumeId ? "PATCH" : "POST";
+        
+        const res = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            template_id: currentTemplateId,
+            resume_data: resumeData,
+            status: "published",
+          }),
+        });
+        
+        if (!res.ok) throw new Error("Failed to save resume");
+        return await res.json();
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [resumeData, resumeId]
+  );
+
   return {
     resumeData,
     currentStep,
     hydrated,
+    steps,
     updateResumeData,
     nextStep,
     prevStep,
     goToStep,
     resetBuilder,
-    totalSteps: BUILDER_STEPS.length,
-    currentStepInfo: BUILDER_STEPS[currentStep],
+    saveToDatabase,
+    isSaving,
+    isLoading,
+    totalSteps: steps.length,
+    currentStepInfo: steps[currentStep] ?? steps[0],
     isFirstStep: currentStep === 0,
-    isLastStep: currentStep === BUILDER_STEPS.length - 1,
+    isLastStep: currentStep === steps.length - 1,
   };
 }
