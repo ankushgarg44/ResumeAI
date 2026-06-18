@@ -11,20 +11,12 @@ import { useResumeBuilder } from "@/hooks/use-resume-builder";
 import { usePdfGenerator } from "@/hooks/use-pdf-generator";
 import { getTemplateConfig } from "@/lib/template-configs";
 
-import { PersonalInfoStep } from "@/components/forms/personal-info-step";
-import { EducationStep } from "@/components/forms/education-step";
-import { CourseworkStep } from "@/components/forms/coursework-step";
-import { ExperienceStep } from "@/components/forms/experience-step";
-import { ProjectsStep } from "@/components/forms/projects-step";
-import { TechnicalSkillsStep } from "@/components/forms/technical-skills-step";
-import { LeadershipStep } from "@/components/forms/leadership-step";
-import { TrainingStep } from "@/components/forms/training-step";
-import { PublicationsStep } from "@/components/forms/publications-step";
 import { TemplateSelectionStep } from "@/components/forms/template-selection-step";
 import { GeneratingScreen } from "@/components/forms/generating-screen";
 import { SuccessScreen } from "@/components/forms/success-screen";
-import { ATSTemplate } from "@/components/resume-templates/ats-template";
-import { ModernTwoColumnTemplate } from "@/components/resume-templates/modern-two-column-template";
+
+import { SECTION_REGISTRY } from "@/lib/section-registry";
+import { TEMPLATE_REGISTRY } from "@/lib/template-registry";
 
 type BuilderPhase = "editing" | "generating" | "success";
 
@@ -112,86 +104,29 @@ function BuilderContent() {
     );
   }
 
-  // Render the step component for a given step key
   const renderStep = () => {
     const key = builder.currentStepInfo.key;
 
-    switch (key) {
-      case "template":
-        return (
-          <TemplateSelectionStep
-            selectedTemplateId={selectedTemplateId}
-            onSelect={handleTemplateSelect}
-          />
-        );
-      case "personal-info":
-        return (
-          <PersonalInfoStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-            visibleFields={templateConfig.personalInfoFields}
-            requiredFields={templateConfig.requiredPersonalInfoFields}
-          />
-        );
-      case "education":
-        return (
-          <EducationStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "coursework":
-        return (
-          <CourseworkStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "experience":
-        return (
-          <ExperienceStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "projects":
-        return (
-          <ProjectsStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "technical-skills":
-        return (
-          <TechnicalSkillsStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "leadership":
-        return (
-          <LeadershipStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "training":
-        return (
-          <TrainingStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "publications":
-        return (
-          <PublicationsStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      default:
-        return null;
+    if (key === "template") {
+      return (
+        <TemplateSelectionStep
+          selectedTemplateId={selectedTemplateId}
+          onSelect={handleTemplateSelect}
+        />
+      );
     }
+
+    const StepComponent = SECTION_REGISTRY[key];
+    if (!StepComponent) return null;
+
+    return (
+      <StepComponent
+        data={builder.resumeData}
+        onChange={builder.updateResumeData}
+        visibleFields={key === "personal-info" ? templateConfig.personalInfoFields : undefined}
+        requiredFields={key === "personal-info" ? templateConfig.requiredPersonalInfoFields : undefined}
+      />
+    );
   };
 
   return (
@@ -205,11 +140,11 @@ function BuilderContent() {
         }}
         aria-hidden="true"
       >
-        {selectedTemplateId === "ats-professional" && (
-          <ATSTemplate ref={templateRef} data={builder.resumeData} />
-        )}
-        {selectedTemplateId === "modern-two-column" && (
-          <ModernTwoColumnTemplate ref={templateRef} data={builder.resumeData} />
+        {selectedTemplateId && TEMPLATE_REGISTRY[selectedTemplateId] && (
+          (() => {
+            const TemplateComponent = TEMPLATE_REGISTRY[selectedTemplateId].component;
+            return <TemplateComponent ref={templateRef} data={builder.resumeData} />;
+          })()
         )}
       </div>
 

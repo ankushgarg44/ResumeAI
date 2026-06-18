@@ -81,11 +81,14 @@ components/
     experience-step.tsx
     generating-screen.tsx
     leadership-step.tsx
+    objective-step.tsx
     personal-info-step.tsx
     projects-step.tsx
+    publications-step.tsx
     success-screen.tsx
     technical-skills-step.tsx
     template-selection-step.tsx
+    training-step.tsx
   layout/
     footer.tsx
     side-navbar.tsx
@@ -93,6 +96,7 @@ components/
     top-navbar.tsx
   resume-templates/
     ats-template.tsx
+    classic-professional-template.tsx
     modern-two-column-template.tsx
   resumes/
     delete-button.tsx
@@ -123,12 +127,15 @@ lib/
   api.ts
   auth.ts
   placeholders.ts
+  section-registry.ts
   template-configs.ts
+  template-registry.ts
   utils.ts
 public/
   templates/
     ats-professional.png
     modern-two-column.png
+    resume_template_3.png
   file.svg
   globe.svg
   next.svg
@@ -148,6 +155,7 @@ postcss.config.mjs
 proxy.ts
 README.md
 resume_template_2.pdf
+resume_template_3.pdf
 resume_template_page1.png
 resume_template.pdf
 tsconfig.json
@@ -155,6 +163,325 @@ tsconfig.json
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="components/forms/objective-step.tsx">
+"use client";
+
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import type { ResumeData } from "@/types";
+
+interface ObjectiveStepProps {
+  data: ResumeData;
+  onChange: (updater: (prev: ResumeData) => ResumeData) => void;
+}
+
+export function ObjectiveStep({ data, onChange }: ObjectiveStepProps) {
+  const update = (value: string) => {
+    onChange((prev) => ({
+      ...prev,
+      objective: value,
+    }));
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      <div>
+        <h3 className="text-2xl font-bold mb-1">Professional Objective</h3>
+        <p className="text-muted-foreground">
+          Write a short summary or objective to highlight your career goals and overall profile.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="objective">Objective / Summary</Label>
+        <Textarea
+          id="objective"
+          className="min-h-[150px]"
+          placeholder="E.g. As an assistant manager, my primary objective is to support the functioning of business operations..."
+          value={data.objective}
+          onChange={(e) => update(e.target.value)}
+        />
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="components/resume-templates/classic-professional-template.tsx">
+import { forwardRef } from "react";
+import type { ResumeData } from "@/types";
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return "";
+  const [year, month] = dateStr.split("-");
+  if (!year || !month) return dateStr;
+  const months = [
+    "Jan.", "Feb.", "Mar.", "Apr.", "May", "June",
+    "July", "Aug.", "Sep.", "Oct.", "Nov.", "Dec."
+  ];
+  return `${months[parseInt(month, 10) - 1]} ${year}`;
+}
+
+export const ClassicProfessionalTemplate = forwardRef<HTMLDivElement, { data: ResumeData }>(
+  function ClassicProfessionalTemplate({ data }, ref) {
+    const { personalInfo, objective, education, technicalSkills, experience } = data;
+
+    const contactParts = [];
+    if (personalInfo?.phone) contactParts.push(personalInfo.phone);
+    if (personalInfo?.email) contactParts.push(personalInfo.email);
+    if (personalInfo?.address) contactParts.push(personalInfo.address);
+    if (personalInfo?.linkedIn) contactParts.push(personalInfo.linkedIn);
+
+    return (
+      <div
+        ref={ref}
+        style={{
+          width: "210mm",
+          minHeight: "297mm",
+          boxSizing: "border-box",
+          background: "#fff",
+          padding: "40mm 20mm",
+          fontFamily: "Georgia, serif",
+          color: "#333",
+          lineHeight: 1.6,
+          fontSize: "11px",
+        }}
+      >
+        {/* Header */}
+        <div style={{ textAlign: "center", marginBottom: "20px" }}>
+          <h1
+            style={{
+              fontSize: "32px",
+              fontWeight: "normal",
+              margin: "0 0 5px 0",
+              color: "#000",
+              textTransform: "uppercase",
+              letterSpacing: "2px",
+            }}
+          >
+            {personalInfo?.fullName || "Your Name"}
+          </h1>
+          {personalInfo?.currentRole && (
+            <div style={{ fontSize: "14px", color: "#555", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px" }}>
+              {personalInfo.currentRole}
+            </div>
+          )}
+          {contactParts.length > 0 && (
+            <div style={{ fontSize: "10px", color: "#666" }}>
+              {contactParts.join(" • ")}
+            </div>
+          )}
+        </div>
+
+        {/* Objective */}
+        {objective && (
+          <div style={{ marginBottom: "20px" }}>
+            <h2
+              style={{
+                fontSize: "13px",
+                fontWeight: "bold",
+                textTransform: "uppercase",
+                borderBottom: "1px solid #000",
+                paddingBottom: "4px",
+                marginBottom: "8px",
+                letterSpacing: "1px",
+                color: "#000"
+              }}
+            >
+              Objective
+            </h2>
+            <div style={{ textAlign: "justify" }}>{objective}</div>
+          </div>
+        )}
+
+        {/* Education */}
+        {education && education.length > 0 && (
+          <div style={{ marginBottom: "20px" }}>
+            <h2
+              style={{
+                fontSize: "13px",
+                fontWeight: "bold",
+                textTransform: "uppercase",
+                borderBottom: "1px solid #000",
+                paddingBottom: "4px",
+                marginBottom: "12px",
+                letterSpacing: "1px",
+                color: "#000"
+              }}
+            >
+              Education
+            </h2>
+            {education.map((edu) => (
+              <div key={edu.id} style={{ marginBottom: "12px", display: "flex", justifyContent: "space-between" }}>
+                <div style={{ width: "70%" }}>
+                  <div style={{ fontWeight: "bold", color: "#000", fontSize: "12px" }}>
+                    {edu.university}
+                  </div>
+                  <div style={{ fontStyle: "italic", color: "#444" }}>
+                    {edu.degree}
+                  </div>
+                  {edu.cgpa && (
+                    <div style={{ color: "#666", marginTop: "2px" }}>
+                      GPA: {edu.cgpa}
+                    </div>
+                  )}
+                </div>
+                <div style={{ width: "28%", textAlign: "right", color: "#666" }}>
+                  {edu.location && <div>{edu.location}</div>}
+                  {edu.endDate && <div>{formatDate(edu.endDate)}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Key Skills */}
+        {technicalSkills &&
+          (technicalSkills.languages?.length > 0 ||
+            technicalSkills.frameworks?.length > 0 ||
+            technicalSkills.developerTools?.length > 0) && (
+            <div style={{ marginBottom: "20px" }}>
+              <h2
+                style={{
+                  fontSize: "13px",
+                  fontWeight: "bold",
+                  textTransform: "uppercase",
+                  borderBottom: "1px solid #000",
+                  paddingBottom: "4px",
+                  marginBottom: "8px",
+                  letterSpacing: "1px",
+                  color: "#000"
+                }}
+              >
+                Key Skills
+              </h2>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+                {technicalSkills.languages && technicalSkills.languages.length > 0 && (
+                  <div style={{ flex: "1 1 30%" }}>
+                    <strong style={{ color: "#000" }}>Languages:</strong> {technicalSkills.languages.join(", ")}
+                  </div>
+                )}
+                {technicalSkills.frameworks && technicalSkills.frameworks.length > 0 && (
+                  <div style={{ flex: "1 1 30%" }}>
+                    <strong style={{ color: "#000" }}>Frameworks:</strong> {technicalSkills.frameworks.join(", ")}
+                  </div>
+                )}
+                {technicalSkills.developerTools && technicalSkills.developerTools.length > 0 && (
+                  <div style={{ flex: "1 1 30%" }}>
+                    <strong style={{ color: "#000" }}>Tools:</strong> {technicalSkills.developerTools.join(", ")}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+        {/* Experience */}
+        {experience && experience.length > 0 && (
+          <div style={{ marginBottom: "20px" }}>
+            <h2
+              style={{
+                fontSize: "13px",
+                fontWeight: "bold",
+                textTransform: "uppercase",
+                borderBottom: "1px solid #000",
+                paddingBottom: "4px",
+                marginBottom: "12px",
+                letterSpacing: "1px",
+                color: "#000"
+              }}
+            >
+              Experience
+            </h2>
+            {experience.map((exp) => (
+              <div key={exp.id} style={{ marginBottom: "16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                  <div style={{ width: "70%" }}>
+                    <span style={{ fontWeight: "bold", fontSize: "12px", color: "#000" }}>
+                      {exp.role}
+                    </span>
+                    {exp.company && (
+                      <span style={{ fontStyle: "italic", marginLeft: "6px", color: "#444" }}>
+                        {exp.company}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ width: "28%", textAlign: "right", color: "#666" }}>
+                    {formatDate(exp.startDate)} – {exp.endDate ? formatDate(exp.endDate) : "Present"}
+                  </div>
+                </div>
+                {exp.bullets && exp.bullets.length > 0 && (
+                  <ul style={{ margin: "4px 0 0 0", paddingLeft: "20px", color: "#333", textAlign: "justify" }}>
+                    {exp.bullets.map((bullet, i) => (
+                      <li key={i} style={{ marginBottom: "3px" }}>
+                        {bullet}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+);
+</file>
+
+<file path="lib/section-registry.ts">
+import { PersonalInfoStep } from "@/components/forms/personal-info-step";
+import { ObjectiveStep } from "@/components/forms/objective-step";
+import { EducationStep } from "@/components/forms/education-step";
+import { CourseworkStep } from "@/components/forms/coursework-step";
+import { ExperienceStep } from "@/components/forms/experience-step";
+import { ProjectsStep } from "@/components/forms/projects-step";
+import { TechnicalSkillsStep } from "@/components/forms/technical-skills-step";
+import { LeadershipStep } from "@/components/forms/leadership-step";
+import { TrainingStep } from "@/components/forms/training-step";
+import { PublicationsStep } from "@/components/forms/publications-step";
+import type { FormSectionKey } from "@/lib/template-configs";
+import type { ResumeData } from "@/types";
+
+export interface SectionProps {
+  data: ResumeData;
+  onChange: (updater: (prev: ResumeData) => ResumeData) => void;
+  // PersonalInfoStep accepts these optionally
+  visibleFields?: string[];
+  requiredFields?: string[];
+}
+
+export const SECTION_REGISTRY: Record<FormSectionKey, React.ComponentType<SectionProps>> = {
+  "personal-info": PersonalInfoStep as any,
+  "objective": ObjectiveStep as any,
+  "education": EducationStep as any,
+  "coursework": CourseworkStep as any,
+  "experience": ExperienceStep as any,
+  "projects": ProjectsStep as any,
+  "technical-skills": TechnicalSkillsStep as any,
+  "leadership": LeadershipStep as any,
+  "training": TrainingStep as any,
+  "publications": PublicationsStep as any,
+};
+</file>
+
+<file path="lib/template-registry.ts">
+import { ATSTemplate } from "@/components/resume-templates/ats-template";
+import { ModernTwoColumnTemplate } from "@/components/resume-templates/modern-two-column-template";
+import { ClassicProfessionalTemplate } from "@/components/resume-templates/classic-professional-template";
+
+export const TEMPLATE_REGISTRY: Record<string, { component: React.ComponentType<any> }> = {
+  "ats-professional": {
+    component: ATSTemplate,
+  },
+  "modern-two-column": {
+    component: ModernTwoColumnTemplate,
+  },
+  "classic-professional": {
+    component: ClassicProfessionalTemplate,
+  },
+};
+</file>
 
 <file path="app/(auth)/sign-in/[[...sign-in]]/page.tsx">
 import { SignIn } from "@clerk/nextjs";
@@ -1094,6 +1421,190 @@ export function ProjectsStep({ data, onChange }: ProjectsStepProps) {
 }
 </file>
 
+<file path="components/forms/publications-step.tsx">
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Plus, Trash2, X } from "lucide-react";
+import { createEmptyPublication } from "@/hooks/use-resume-builder";
+import type { ResumeData } from "@/types";
+
+interface PublicationsStepProps {
+  data: ResumeData;
+  onChange: (updater: (prev: ResumeData) => ResumeData) => void;
+}
+
+export function PublicationsStep({ data, onChange }: PublicationsStepProps) {
+  const addPublication = () => {
+    onChange((prev) => ({
+      ...prev,
+      publications: [...prev.publications, createEmptyPublication()],
+    }));
+  };
+
+  const removePublication = (id: string) => {
+    onChange((prev) => ({
+      ...prev,
+      publications: prev.publications.filter((p) => p.id !== id),
+    }));
+  };
+
+  const updateField = (id: string, field: string, value: string) => {
+    onChange((prev) => ({
+      ...prev,
+      publications: prev.publications.map((p) =>
+        p.id === id ? { ...p, [field]: value } : p
+      ),
+    }));
+  };
+
+  const updateDescription = (id: string, index: number, value: string) => {
+    onChange((prev) => ({
+      ...prev,
+      publications: prev.publications.map((p) =>
+        p.id === id
+          ? { ...p, description: p.description.map((d, i) => (i === index ? value : d)) }
+          : p
+      ),
+    }));
+  };
+
+  const addDescriptionBullet = (id: string) => {
+    onChange((prev) => ({
+      ...prev,
+      publications: prev.publications.map((p) =>
+        p.id === id ? { ...p, description: [...p.description, ""] } : p
+      ),
+    }));
+  };
+
+  const removeDescriptionBullet = (id: string, index: number) => {
+    onChange((prev) => ({
+      ...prev,
+      publications: prev.publications.map((p) =>
+        p.id === id
+          ? { ...p, description: p.description.filter((_, i) => i !== index) }
+          : p
+      ),
+    }));
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-2xl font-bold mb-1">Publications</h3>
+          <p className="text-muted-foreground">
+            List your published papers, articles, or books.
+          </p>
+        </div>
+        <Button variant="outline" onClick={addPublication} className="bg-background shrink-0">
+          <Plus className="w-4 h-4 mr-2" /> Add Publication
+        </Button>
+      </div>
+
+      {data.publications.length === 0 && (
+        <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg">
+          <p className="font-medium">No publications added yet</p>
+          <p className="text-sm mt-1">Click &quot;Add Publication&quot; to get started.</p>
+        </div>
+      )}
+
+      {data.publications.map((item, index) => (
+        <Card key={item.id} className="p-6 border-border">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">
+              Publication #{index + 1}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => removePublication(item.id)}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="space-y-2">
+              <Label>Publication Title</Label>
+              <Input
+                placeholder="The Future of AI"
+                value={item.title}
+                onChange={(e) => updateField(item.id, "title", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Publisher / Journal</Label>
+              <Input
+                placeholder="Tech Monthly"
+                value={item.publisher}
+                onChange={(e) => updateField(item.id, "publisher", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Publication Date</Label>
+              <Input
+                type="month"
+                value={item.publicationDate}
+                onChange={(e) => updateField(item.id, "publicationDate", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Link (URL)</Label>
+              <Input
+                placeholder="https://example.com/article"
+                value={item.link}
+                onChange={(e) => updateField(item.id, "link", e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Description</Label>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => addDescriptionBullet(item.id)}
+                className="h-7 text-xs text-primary"
+              >
+                <Plus className="w-3 h-3 mr-1" /> Add Bullet
+              </Button>
+            </div>
+            {item.description.map((desc, dIdx) => (
+              <div key={dIdx} className="flex items-start gap-2">
+                <span className="mt-2.5 text-muted-foreground text-sm">•</span>
+                <Input
+                  placeholder="Key takeaways or summary..."
+                  value={desc}
+                  onChange={(e) => updateDescription(item.id, dIdx, e.target.value)}
+                  className="flex-1"
+                />
+                {item.description.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeDescriptionBullet(item.id, dIdx)}
+                    className="shrink-0 h-9 w-9 text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+</file>
+
 <file path="components/forms/success-screen.tsx">
 "use client";
 
@@ -1276,6 +1787,200 @@ export function TechnicalSkillsStep({ data, onChange }: TechnicalSkillsStepProps
           />
         ))}
       </div>
+    </div>
+  );
+}
+</file>
+
+<file path="components/forms/training-step.tsx">
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Plus, Trash2, X } from "lucide-react";
+import { createEmptyTraining } from "@/hooks/use-resume-builder";
+import type { ResumeData } from "@/types";
+
+interface TrainingStepProps {
+  data: ResumeData;
+  onChange: (updater: (prev: ResumeData) => ResumeData) => void;
+}
+
+export function TrainingStep({ data, onChange }: TrainingStepProps) {
+  const addTraining = () => {
+    onChange((prev) => ({
+      ...prev,
+      training: [...prev.training, createEmptyTraining()],
+    }));
+  };
+
+  const removeTraining = (id: string) => {
+    onChange((prev) => ({
+      ...prev,
+      training: prev.training.filter((t) => t.id !== id),
+    }));
+  };
+
+  const updateField = (id: string, field: string, value: string) => {
+    onChange((prev) => ({
+      ...prev,
+      training: prev.training.map((t) =>
+        t.id === id ? { ...t, [field]: value } : t
+      ),
+    }));
+  };
+
+  const updateDescription = (id: string, index: number, value: string) => {
+    onChange((prev) => ({
+      ...prev,
+      training: prev.training.map((t) =>
+        t.id === id
+          ? { ...t, description: t.description.map((d, i) => (i === index ? value : d)) }
+          : t
+      ),
+    }));
+  };
+
+  const addDescriptionBullet = (id: string) => {
+    onChange((prev) => ({
+      ...prev,
+      training: prev.training.map((t) =>
+        t.id === id ? { ...t, description: [...t.description, ""] } : t
+      ),
+    }));
+  };
+
+  const removeDescriptionBullet = (id: string, index: number) => {
+    onChange((prev) => ({
+      ...prev,
+      training: prev.training.map((t) =>
+        t.id === id
+          ? { ...t, description: t.description.filter((_, i) => i !== index) }
+          : t
+      ),
+    }));
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-2xl font-bold mb-1">Training</h3>
+          <p className="text-muted-foreground">
+            Highlight relevant training, workshops, or bootcamps.
+          </p>
+        </div>
+        <Button variant="outline" onClick={addTraining} className="bg-background shrink-0">
+          <Plus className="w-4 h-4 mr-2" /> Add Training
+        </Button>
+      </div>
+
+      {data.training.length === 0 && (
+        <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg">
+          <p className="font-medium">No training added yet</p>
+          <p className="text-sm mt-1">Click &quot;Add Training&quot; to get started.</p>
+        </div>
+      )}
+
+      {data.training.map((item, index) => (
+        <Card key={item.id} className="p-6 border-border">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium text-muted-foreground">
+              Training #{index + 1}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => removeTraining(item.id)}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="space-y-2">
+              <Label>Training Title</Label>
+              <Input
+                placeholder="AWS Certified Solutions Architect"
+                value={item.title}
+                onChange={(e) => updateField(item.id, "title", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Organization</Label>
+              <Input
+                placeholder="Amazon Web Services"
+                value={item.organization}
+                onChange={(e) => updateField(item.id, "organization", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Location</Label>
+              <Input
+                placeholder="Online"
+                value={item.location}
+                onChange={(e) => updateField(item.id, "location", e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Start Date</Label>
+                <Input
+                  type="month"
+                  value={item.startDate}
+                  onChange={(e) => updateField(item.id, "startDate", e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>End Date</Label>
+                <Input
+                  type="month"
+                  value={item.endDate}
+                  onChange={(e) => updateField(item.id, "endDate", e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Description</Label>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => addDescriptionBullet(item.id)}
+                className="h-7 text-xs text-primary"
+              >
+                <Plus className="w-3 h-3 mr-1" /> Add Bullet
+              </Button>
+            </div>
+            {item.description.map((desc, dIdx) => (
+              <div key={dIdx} className="flex items-start gap-2">
+                <span className="mt-2.5 text-muted-foreground text-sm">•</span>
+                <Input
+                  placeholder="What did you learn or accomplish?"
+                  value={desc}
+                  onChange={(e) => updateDescription(item.id, dIdx, e.target.value)}
+                  className="flex-1"
+                />
+                {item.description.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeDescriptionBullet(item.id, dIdx)}
+                    className="shrink-0 h-9 w-9 text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      ))}
     </div>
   );
 }
@@ -3848,6 +4553,7 @@ const ALL_FIELDS: (keyof ResumePersonalInfo)[] = [
   "email",
   "linkedIn",
   "github",
+  "currentRole",
 ];
 
 interface FieldDef {
@@ -3864,6 +4570,7 @@ const FIELD_DEFS: FieldDef[] = [
   { key: "email", label: "Email", placeholder: "email@gmail.com", type: "email" },
   { key: "linkedIn", label: "LinkedIn", placeholder: "linkedin.com/in/username" },
   { key: "github", label: "GitHub", placeholder: "github.com/username" },
+  { key: "currentRole", label: "Current Role", placeholder: "Software Engineer" },
 ];
 
 export function PersonalInfoStep({
@@ -3911,283 +4618,6 @@ export function PersonalInfoStep({
     </div>
   );
 }
-</file>
-
-<file path="components/resume-templates/modern-two-column-template.tsx">
-import { forwardRef } from "react";
-import type { ResumeData } from "@/types";
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return "";
-  const [year, month] = dateStr.split("-");
-  if (!year || !month) return dateStr;
-  const months = [
-    "Jan.", "Feb.", "Mar.", "Apr.", "May", "June",
-    "July", "Aug.", "Sep.", "Oct.", "Nov.", "Dec."
-  ];
-  return `${months[parseInt(month, 10) - 1]} ${year}`;
-}
-
-export const ModernTwoColumnTemplate = forwardRef<HTMLDivElement, { data: ResumeData }>(
-  function ModernTwoColumnTemplate({ data }, ref) {
-    const {
-      personalInfo,
-      education,
-      coursework,
-      experience,
-      projects,
-      technicalSkills,
-    } = data;
-
-    // Contact string parts
-    const contactParts = [];
-    if (personalInfo?.email) contactParts.push(personalInfo.email);
-    if (personalInfo?.phone) contactParts.push(personalInfo.phone);
-    if (personalInfo?.address) contactParts.push(personalInfo.address);
-    const contactString = contactParts.join(" | ");
-
-    return (
-      <div
-        ref={ref}
-        style={{
-          width: "210mm",
-          minHeight: "297mm",
-          boxSizing: "border-box",
-          background: "#fff",
-          padding: "40px",
-          fontFamily: "Helvetica, Arial, sans-serif",
-          color: "#333",
-          fontSize: "12px",
-          lineHeight: 1.5,
-        }}
-      >
-        {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: "20px" }}>
-          <h1
-            style={{
-              fontSize: "46px",
-              fontWeight: 300,
-              margin: "0 0 10px 0",
-              color: "#111",
-            }}
-          >
-            {personalInfo?.fullName || "Your Name"}
-          </h1>
-          {contactString && (
-            <div style={{ fontSize: "13px", color: "#666" }}>
-              {contactString}
-            </div>
-          )}
-        </div>
-
-        <div style={{ borderBottom: "1px solid #ccc", marginBottom: "20px" }} />
-
-        {/* Two-Column Layout */}
-        <div style={{ display: "flex", gap: "30px" }}>
-          {/* Left Column */}
-          <div style={{ flex: "0 0 32%" }}>
-            {education && education.length > 0 && (
-              <div style={{ marginBottom: "25px" }}>
-                <h2
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: 300,
-                    textTransform: "uppercase",
-                    letterSpacing: "1px",
-                    color: "#888",
-                    margin: "0 0 10px 0",
-                  }}
-                >
-                  Education
-                </h2>
-                {education.map((edu) => (
-                  <div key={edu.id} style={{ marginBottom: "15px" }}>
-                    <div style={{ fontWeight: 600, fontSize: "14px", color: "#111", textTransform: "uppercase" }}>
-                      {edu.university}
-                    </div>
-                    <div style={{ fontWeight: 600, marginTop: "2px" }}>
-                      {edu.degree}
-                    </div>
-                    <div style={{ color: "#666", marginTop: "2px" }}>
-                      {edu.endDate && `Grad. ${formatDate(edu.endDate)} `}
-                      {edu.location && `| ${edu.location}`}
-                    </div>
-                    {edu.cgpa && (
-                      <div style={{ color: "#666", marginTop: "2px" }}>
-                        Cum. GPA: {edu.cgpa}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {(personalInfo?.linkedIn || personalInfo?.github) && (
-              <div style={{ marginBottom: "25px" }}>
-                <h2
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: 300,
-                    textTransform: "uppercase",
-                    letterSpacing: "1px",
-                    color: "#888",
-                    margin: "0 0 10px 0",
-                  }}
-                >
-                  Links
-                </h2>
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  {personalInfo.linkedIn && (
-                    <div>
-                      <span style={{ color: "#888" }}>LinkedIn://</span> {personalInfo.linkedIn}
-                    </div>
-                  )}
-                  {personalInfo.github && (
-                    <div>
-                      <span style={{ color: "#888" }}>GitHub://</span> {personalInfo.github}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {coursework && coursework.length > 0 && (
-              <div style={{ marginBottom: "25px" }}>
-                <h2
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: 300,
-                    textTransform: "uppercase",
-                    letterSpacing: "1px",
-                    color: "#888",
-                    margin: "0 0 10px 0",
-                  }}
-                >
-                  Coursework
-                </h2>
-                <ul style={{ margin: 0, padding: 0, listStyle: "none", color: "#444" }}>
-                  {coursework.map((course, i) => (
-                    <li key={i} style={{ marginBottom: "2px" }}>
-                      {course}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {technicalSkills && (technicalSkills.languages?.length > 0 || technicalSkills.frameworks?.length > 0 || technicalSkills.developerTools?.length > 0) && (
-              <div style={{ marginBottom: "25px" }}>
-                <h2
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: 300,
-                    textTransform: "uppercase",
-                    letterSpacing: "1px",
-                    color: "#888",
-                    margin: "0 0 10px 0",
-                  }}
-                >
-                  Skills
-                </h2>
-                {technicalSkills.languages && technicalSkills.languages.length > 0 && (
-                  <div style={{ marginBottom: "10px" }}>
-                    <div style={{ fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Languages</div>
-                    <div style={{ color: "#444" }}>{technicalSkills.languages.join(" • ")}</div>
-                  </div>
-                )}
-                {technicalSkills.frameworks && technicalSkills.frameworks.length > 0 && (
-                  <div style={{ marginBottom: "10px" }}>
-                    <div style={{ fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Frameworks</div>
-                    <div style={{ color: "#444" }}>{technicalSkills.frameworks.join(" • ")}</div>
-                  </div>
-                )}
-                {technicalSkills.developerTools && technicalSkills.developerTools.length > 0 && (
-                  <div style={{ marginBottom: "10px" }}>
-                    <div style={{ fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Tools</div>
-                    <div style={{ color: "#444" }}>{technicalSkills.developerTools.join(" • ")}</div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Right Column */}
-          <div style={{ flex: "1" }}>
-            {experience && experience.length > 0 && (
-              <div style={{ marginBottom: "25px" }}>
-                <h2
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: 300,
-                    textTransform: "uppercase",
-                    letterSpacing: "1px",
-                    color: "#888",
-                    margin: "0 0 10px 0",
-                  }}
-                >
-                  Experience
-                </h2>
-                {experience.map((exp) => (
-                  <div key={exp.id} style={{ marginBottom: "15px" }}>
-                    <div style={{ fontSize: "14px", textTransform: "uppercase" }}>
-                      <span style={{ fontWeight: 600, color: "#111" }}>{exp.company}</span>
-                      {exp.role && <span style={{ color: "#555" }}> | {exp.role}</span>}
-                    </div>
-                    <div style={{ color: "#666", marginTop: "2px", marginBottom: "6px" }}>
-                      {formatDate(exp.startDate)} – {exp.endDate ? formatDate(exp.endDate) : "Present"}
-                      {exp.location && ` | ${exp.location}`}
-                    </div>
-                    {exp.bullets && exp.bullets.length > 0 && (
-                      <ul style={{ margin: 0, paddingLeft: "20px", color: "#444" }}>
-                        {exp.bullets.map((bullet, i) => (
-                          <li key={i} style={{ marginBottom: "4px" }}>{bullet}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {projects && projects.length > 0 && (
-              <div style={{ marginBottom: "25px" }}>
-                <h2
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: 300,
-                    textTransform: "uppercase",
-                    letterSpacing: "1px",
-                    color: "#888",
-                    margin: "0 0 10px 0",
-                  }}
-                >
-                  Projects
-                </h2>
-                {projects.map((proj) => (
-                  <div key={proj.id} style={{ marginBottom: "15px" }}>
-                    <div style={{ fontSize: "14px", fontWeight: 600, color: "#111", textTransform: "uppercase" }}>
-                      {proj.title}
-                    </div>
-                    <div style={{ color: "#666", marginTop: "2px", marginBottom: "4px" }}>
-                      {formatDate(proj.date)} {proj.technologies && `| ${proj.technologies}`}
-                    </div>
-                    {proj.bullets && proj.bullets.length > 0 && (
-                      <div style={{ color: "#444" }}>
-                        {proj.bullets.map((bullet, i) => (
-                          <div key={i} style={{ marginBottom: "4px" }}>{bullet}</div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-);
 </file>
 
 <file path="lib/supabase/resumes.ts">
@@ -4342,8 +4772,9 @@ export async function generateResumeContent(
           email: "user@example.com",
           phone: "+1 (555) 000-0000",
           address: "San Francisco, CA",
-          linkedIn: "",
-          github: "",
+          linkedIn: "linkedin.com/in/johndoe",
+          github: "github.com/johndoe",
+          currentRole: "Software Engineer",
         },
       });
     }, 1500);
@@ -5025,143 +5456,6 @@ export default function TemplatesPage() {
 }
 </file>
 
-<file path="components/forms/template-selection-step.tsx">
-"use client";
-
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { CheckCircle, FileText, GraduationCap, Briefcase, Code, Award, BookOpen, Wrench, Users } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { TEMPLATE_CONFIGS, getTemplateIds } from "@/lib/template-configs";
-import type { FormSectionKey } from "@/lib/template-configs";
-import Image from "next/image";
-
-interface TemplateSelectionStepProps {
-  selectedTemplateId: string | null;
-  onSelect: (id: string) => void;
-}
-
-// Icons for each section key
-const SECTION_ICONS: Record<FormSectionKey, React.ReactNode> = {
-  "personal-info": <FileText className="w-3.5 h-3.5" />,
-  "education": <GraduationCap className="w-3.5 h-3.5" />,
-  "coursework": <BookOpen className="w-3.5 h-3.5" />,
-  "experience": <Briefcase className="w-3.5 h-3.5" />,
-  "projects": <Code className="w-3.5 h-3.5" />,
-  "technical-skills": <Wrench className="w-3.5 h-3.5" />,
-  "leadership": <Users className="w-3.5 h-3.5" />,
-};
-
-const SECTION_LABELS: Record<FormSectionKey, string> = {
-  "personal-info": "Personal Info",
-  "education": "Education",
-  "coursework": "Coursework",
-  "experience": "Experience",
-  "projects": "Projects",
-  "technical-skills": "Technical Skills",
-  "leadership": "Leadership",
-};
-
-
-export function TemplateSelectionStep({
-  selectedTemplateId,
-  onSelect,
-}: TemplateSelectionStepProps) {
-  const templateIds = getTemplateIds();
-
-  return (
-    <div className="space-y-8 animate-in fade-in duration-300">
-      <div>
-        <h3 className="text-2xl font-bold mb-1">Choose a Template</h3>
-        <p className="text-muted-foreground">
-          Each template shows different sections tailored to the role you&apos;re targeting.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {templateIds.map((id) => {
-          const config = TEMPLATE_CONFIGS[id];
-          const isSelected = selectedTemplateId === id;
-
-          return (
-            <Card
-              key={id}
-              className={cn(
-                "cursor-pointer transition-all duration-200 overflow-hidden border-2 flex flex-col",
-                isSelected
-                  ? "border-primary shadow-lg shadow-primary/10 ring-2 ring-primary/20"
-                  : "border-border hover:border-primary/40 hover:shadow-md"
-              )}
-              onClick={() => onSelect(id)}
-            >
-              {/* Mini preview */}
-              <div className="aspect-[1/1.2] bg-white relative overflow-hidden">
-                <Image
-                  src={config.previewImage}
-                  alt={`${config.name} preview`}
-                  fill
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  priority
-                  className="object-cover object-top"
-                />
-
-                {isSelected && (
-                  <div className="absolute top-2 right-2">
-                    <div className="bg-primary text-primary-foreground rounded-full p-1">
-                      <CheckCircle className="w-4 h-4" />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Template info */}
-              <div className="p-4 bg-card border-t border-border flex-1 flex flex-col">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-semibold text-foreground text-sm">{config.name}</h4>
-                  <Badge
-                    className={cn(
-                      "text-[10px] px-1.5 py-0.5",
-                      config.badgeColor.bg,
-                      config.badgeColor.text,
-                      config.badgeColor.border
-                    )}
-                  >
-                    {config.badge}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground mb-3 flex-1">
-                  {config.description}
-                </p>
-
-                {/* Section preview list */}
-                <div className="space-y-1 pt-2 border-t border-border">
-                  <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground">
-                    Sections included
-                  </span>
-                  <div className="flex flex-wrap gap-1.5 mt-1">
-                    {config.sections
-                      .filter((s) => s !== "personal-info")
-                      .map((section) => (
-                        <span
-                          key={section}
-                          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md"
-                        >
-                          {SECTION_ICONS[section]}
-                          {SECTION_LABELS[section]}
-                        </span>
-                      ))}
-                  </div>
-                </div>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-</file>
-
 <file path="components/layout/top-navbar.tsx">
 "use client";
 
@@ -5268,370 +5562,361 @@ export function TopNavbar() {
 }
 </file>
 
-<file path="lib/template-configs.ts">
-import type { ResumePersonalInfo, BuilderStep } from "@/types";
+<file path="components/resume-templates/modern-two-column-template.tsx">
+import { forwardRef } from "react";
+import type { ResumeData } from "@/types";
 
-// All possible form section keys (excludes "template" which is always step 1)
-export type FormSectionKey = Exclude<BuilderStep, "template">;
-
-export interface TemplateConfig {
-  id: string;
-  name: string;
-  description: string;
-  badge: string;
-  badgeColor: { bg: string; text: string; border: string };
-  sections: FormSectionKey[];
-  personalInfoFields: (keyof ResumePersonalInfo)[];
-  requiredPersonalInfoFields: (keyof ResumePersonalInfo)[];
-  previewImage: string;
-}
-
-export interface StepInfo {
-  key: BuilderStep;
-  label: string;
-  number: number;
-}
-
-// Labels for each section key
-const SECTION_LABELS: Record<BuilderStep, string> = {
-  "template": "Template",
-  "personal-info": "Personal Info",
-  "education": "Education",
-  "coursework": "Coursework",
-  "experience": "Experience",
-  "projects": "Projects",
-  "technical-skills": "Skills",
-  "leadership": "Leadership",
-};
-
-// ─── Template Configs ────────────────────────────────────
-
-export const TEMPLATE_CONFIGS: Record<string, TemplateConfig> = {
-  "ats-professional": {
-    id: "ats-professional",
-    name: "ATS Professional",
-    description:
-      "Clean, structured layout optimized for Applicant Tracking Systems. Uses serif headings, clear section dividers, and professional formatting.",
-    badge: "ATS Friendly",
-    badgeColor: {
-      bg: "bg-emerald-100 dark:bg-emerald-950/30",
-      text: "text-emerald-700 dark:text-emerald-400",
-      border: "border-emerald-200 dark:border-emerald-800",
-    },
-    sections: [
-      "personal-info",
-      "education",
-      "coursework",
-      "experience",
-      "projects",
-      "technical-skills",
-      "leadership",
-    ],
-    personalInfoFields: ["fullName", "address", "phone", "email", "linkedIn", "github"],
-    requiredPersonalInfoFields: ["fullName", "email"],
-    previewImage: "/templates/ats-professional.png",
-  },
-
-  "modern-two-column": {
-    id: "modern-two-column",
-    name: "Modern Two-Column",
-    description:
-      "A clean, modern two-column layout that highlights education and skills on the left, with experience and projects on the right.",
-    badge: "Modern",
-    badgeColor: {
-      bg: "bg-blue-100 dark:bg-blue-950/30",
-      text: "text-blue-700 dark:text-blue-400",
-      border: "border-blue-200 dark:border-blue-800",
-    },
-    sections: [
-      "personal-info",
-      "education",
-      "coursework",
-      "experience",
-      "projects",
-      "technical-skills",
-    ],
-    personalInfoFields: ["fullName", "address", "phone", "email", "linkedIn", "github"],
-    requiredPersonalInfoFields: ["fullName", "email"],
-    previewImage: "/templates/modern-two-column.png",
-  },
-};
-
-// ─── Helpers ─────────────────────────────────────────────
-
-/** Get the ordered list of template IDs for rendering */
-export function getTemplateIds(): string[] {
-  return Object.keys(TEMPLATE_CONFIGS);
-}
-
-/** Get a template config by id, falls back to ats-professional */
-export function getTemplateConfig(templateId: string | null): TemplateConfig {
-  if (templateId && TEMPLATE_CONFIGS[templateId]) {
-    return TEMPLATE_CONFIGS[templateId];
-  }
-  return TEMPLATE_CONFIGS["ats-professional"];
-}
-
-/**
- * Build the full wizard step array for a given template.
- * Template selection is always step 1, then the template's sections follow.
- */
-export function getStepsForTemplate(templateId: string | null): StepInfo[] {
-  const config = getTemplateConfig(templateId);
-
-  const steps: StepInfo[] = [
-    { key: "template", label: "Template", number: 1 },
+function formatDate(dateStr: string): string {
+  if (!dateStr) return "";
+  const [year, month] = dateStr.split("-");
+  if (!year || !month) return dateStr;
+  const months = [
+    "Jan.", "Feb.", "Mar.", "Apr.", "May", "June",
+    "July", "Aug.", "Sep.", "Oct.", "Nov.", "Dec."
   ];
-
-  config.sections.forEach((sectionKey, idx) => {
-    steps.push({
-      key: sectionKey,
-      label: SECTION_LABELS[sectionKey],
-      number: idx + 2, // starts at 2 since template is 1
-    });
-  });
-
-  return steps;
-}
-</file>
-
-<file path="types/index.ts">
-// ==========================================
-// ResumeAI — TypeScript Type Definitions
-// ==========================================
-
-// ---------- User ----------
-export interface User {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  avatarUrl?: string;
-  plan: "free" | "pro" | "enterprise";
-  createdAt: string;
-  updatedAt: string;
+  return `${months[parseInt(month, 10) - 1]} ${year}`;
 }
 
-// ---------- Resume Sections ----------
-export interface PersonalInfo {
-  fullName: string;
-  email: string;
-  phone: string;
-  location: string;
-  linkedIn?: string;
-  website?: string;
-  currentRole: string;
-  summary: string;
-}
+export const ModernTwoColumnTemplate = forwardRef<HTMLDivElement, { data: ResumeData }>(
+  function ModernTwoColumnTemplate({ data }, ref) {
+    const {
+      personalInfo,
+      education,
+      coursework,
+      experience,
+      projects,
+      technicalSkills,
+      training,
+      publications,
+    } = data;
 
-export interface WorkExperience {
-  id: string;
-  company: string;
-  role: string;
-  location: string;
-  startDate: string;
-  endDate: string | null;
-  current: boolean;
-  description: string;
-  highlights: string[];
-}
+    // Contact string parts
+    const contactParts = [];
+    if (personalInfo?.email) contactParts.push(personalInfo.email);
+    if (personalInfo?.phone) contactParts.push(personalInfo.phone);
+    if (personalInfo?.address) contactParts.push(personalInfo.address);
+    const contactString = contactParts.join(" | ");
 
-export interface Education {
-  id: string;
-  institution: string;
-  degree: string;
-  field: string;
-  startDate: string;
-  endDate: string;
-  gpa?: string;
-  highlights: string[];
-}
+    return (
+      <div
+        ref={ref}
+        style={{
+          width: "210mm",
+          minHeight: "297mm",
+          boxSizing: "border-box",
+          background: "#fff",
+          padding: "40px",
+          fontFamily: "Helvetica, Arial, sans-serif",
+          color: "#333",
+          fontSize: "12px",
+          lineHeight: 1.5,
+        }}
+      >
+        {/* Header */}
+        <div style={{ textAlign: "center", marginBottom: "20px" }}>
+          <h1
+            style={{
+              fontSize: "46px",
+              fontWeight: 300,
+              margin: "0 0 10px 0",
+              color: "#111",
+            }}
+          >
+            {personalInfo?.fullName || "Your Name"}
+          </h1>
+          {contactString && (
+            <div style={{ fontSize: "13px", color: "#666" }}>
+              {contactString}
+            </div>
+          )}
+        </div>
 
-export interface Skill {
-  id: string;
-  name: string;
-  category: "technical" | "soft" | "language" | "tool";
-  proficiency?: "beginner" | "intermediate" | "advanced" | "expert";
-}
+        <div style={{ borderBottom: "1px solid #ccc", marginBottom: "20px" }} />
 
-export interface Certification {
-  id: string;
-  name: string;
-  issuer: string;
-  date: string;
-  url?: string;
-}
+        {/* Two-Column Layout */}
+        <div style={{ display: "flex", gap: "30px" }}>
+          {/* Left Column */}
+          <div style={{ flex: "0 0 32%" }}>
+            {education && education.length > 0 && (
+              <div style={{ marginBottom: "25px" }}>
+                <h2
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 300,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    color: "#888",
+                    margin: "0 0 10px 0",
+                  }}
+                >
+                  Education
+                </h2>
+                {education.map((edu) => (
+                  <div key={edu.id} style={{ marginBottom: "15px" }}>
+                    <div style={{ fontWeight: 600, fontSize: "14px", color: "#111", textTransform: "uppercase" }}>
+                      {edu.university}
+                    </div>
+                    <div style={{ fontWeight: 600, marginTop: "2px" }}>
+                      {edu.degree}
+                    </div>
+                    <div style={{ color: "#666", marginTop: "2px" }}>
+                      {edu.endDate && `Grad. ${formatDate(edu.endDate)} `}
+                      {edu.location && `| ${edu.location}`}
+                    </div>
+                    {edu.cgpa && (
+                      <div style={{ color: "#666", marginTop: "2px" }}>
+                        Cum. GPA: {edu.cgpa}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
-export interface Project {
-  id: string;
-  name: string;
-  description: string;
-  url?: string;
-  technologies: string[];
-}
+            {(personalInfo?.linkedIn || personalInfo?.github) && (
+              <div style={{ marginBottom: "25px" }}>
+                <h2
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 300,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    color: "#888",
+                    margin: "0 0 10px 0",
+                  }}
+                >
+                  Links
+                </h2>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  {personalInfo.linkedIn && (
+                    <div>
+                      <span style={{ color: "#888" }}>LinkedIn://</span> {personalInfo.linkedIn}
+                    </div>
+                  )}
+                  {personalInfo.github && (
+                    <div>
+                      <span style={{ color: "#888" }}>GitHub://</span> {personalInfo.github}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
-// ---------- Resume ----------
-export interface Resume {
-  id: string;
-  user_id: string;
-  title: string;
-  template_id: string;
-  resume_data: ResumeData;
-  ats_score: number | null;
-  status: "draft" | "published";
-  created_at: string;
-  updated_at: string;
-}
+            {coursework && coursework.length > 0 && (
+              <div style={{ marginBottom: "25px" }}>
+                <h2
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 300,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    color: "#888",
+                    margin: "0 0 10px 0",
+                  }}
+                >
+                  Coursework
+                </h2>
+                <ul style={{ margin: 0, padding: 0, listStyle: "none", color: "#444" }}>
+                  {coursework.map((course, i) => (
+                    <li key={i} style={{ marginBottom: "2px" }}>
+                      {course}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-// ---------- Resume Template ----------
-export interface ResumeTemplate {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  previewUrl: string;
-  atsOptimized: boolean;
-  matchScore?: number;
-  tags: string[];
-}
+            {technicalSkills && (technicalSkills.languages?.length > 0 || technicalSkills.frameworks?.length > 0 || technicalSkills.developerTools?.length > 0) && (
+              <div style={{ marginBottom: "25px" }}>
+                <h2
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 300,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    color: "#888",
+                    margin: "0 0 10px 0",
+                  }}
+                >
+                  Skills
+                </h2>
+                {technicalSkills.languages && technicalSkills.languages.length > 0 && (
+                  <div style={{ marginBottom: "10px" }}>
+                    <div style={{ fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Languages</div>
+                    <div style={{ color: "#444" }}>{technicalSkills.languages.join(" • ")}</div>
+                  </div>
+                )}
+                {technicalSkills.frameworks && technicalSkills.frameworks.length > 0 && (
+                  <div style={{ marginBottom: "10px" }}>
+                    <div style={{ fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Frameworks</div>
+                    <div style={{ color: "#444" }}>{technicalSkills.frameworks.join(" • ")}</div>
+                  </div>
+                )}
+                {technicalSkills.developerTools && technicalSkills.developerTools.length > 0 && (
+                  <div style={{ marginBottom: "10px" }}>
+                    <div style={{ fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>Tools</div>
+                    <div style={{ color: "#444" }}>{technicalSkills.developerTools.join(" • ")}</div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
-// ---------- ATS Analysis ----------
-export interface ATSAnalysis {
-  overallScore: number;
-  matchedSkills: string[];
-  missingKeywords: string[];
-  suggestions: ATSSuggestion[];
-}
+          {/* Right Column */}
+          <div style={{ flex: "1" }}>
+            {experience && experience.length > 0 && (
+              <div style={{ marginBottom: "25px" }}>
+                <h2
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 300,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    color: "#888",
+                    margin: "0 0 10px 0",
+                  }}
+                >
+                  Experience
+                </h2>
+                {experience.map((exp) => (
+                  <div key={exp.id} style={{ marginBottom: "15px" }}>
+                    <div style={{ fontSize: "14px", textTransform: "uppercase" }}>
+                      <span style={{ fontWeight: 600, color: "#111" }}>{exp.company}</span>
+                      {exp.role && <span style={{ color: "#555" }}> | {exp.role}</span>}
+                    </div>
+                    <div style={{ color: "#666", marginTop: "2px", marginBottom: "6px" }}>
+                      {formatDate(exp.startDate)} – {exp.endDate ? formatDate(exp.endDate) : "Present"}
+                      {exp.location && ` | ${exp.location}`}
+                    </div>
+                    {exp.bullets && exp.bullets.length > 0 && (
+                      <ul style={{ margin: 0, paddingLeft: "20px", color: "#444" }}>
+                        {exp.bullets.map((bullet, i) => (
+                          <li key={i} style={{ marginBottom: "4px" }}>{bullet}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
-export interface ATSSuggestion {
-  id: string;
-  icon: string;
-  text: string;
-  type: "improvement" | "warning" | "tip";
-}
+            {projects && projects.length > 0 && (
+              <div style={{ marginBottom: "25px" }}>
+                <h2
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 300,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    color: "#888",
+                    margin: "0 0 10px 0",
+                  }}
+                >
+                  Projects
+                </h2>
+                {projects.map((proj) => (
+                  <div key={proj.id} style={{ marginBottom: "15px" }}>
+                    <div style={{ fontSize: "14px", fontWeight: 600, color: "#111", textTransform: "uppercase" }}>
+                      {proj.title}
+                    </div>
+                    <div style={{ color: "#666", marginTop: "2px", marginBottom: "4px" }}>
+                      {formatDate(proj.date)} {proj.technologies && `| ${proj.technologies}`}
+                    </div>
+                    {proj.bullets && proj.bullets.length > 0 && (
+                      <div style={{ color: "#444" }}>
+                        {proj.bullets.map((bullet, i) => (
+                          <div key={i} style={{ marginBottom: "4px" }}>{bullet}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
-// ---------- Job Optimization ----------
-export interface JobOptimization {
-  jobDescription: string;
-  analysis: ATSAnalysis | null;
-  isAnalyzing: boolean;
-}
+            {training && training.length > 0 && (
+              <div style={{ marginBottom: "25px" }}>
+                <h2
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 300,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    color: "#888",
+                    margin: "0 0 10px 0",
+                  }}
+                >
+                  Training
+                </h2>
+                {training.map((trn) => (
+                  <div key={trn.id} style={{ marginBottom: "15px" }}>
+                    <div style={{ fontSize: "14px", fontWeight: 600, color: "#111", textTransform: "uppercase" }}>
+                      {trn.title}
+                    </div>
+                    <div style={{ color: "#666", marginTop: "2px", marginBottom: "4px" }}>
+                      {trn.organization} {trn.location && `| ${trn.location}`}
+                    </div>
+                    {(trn.startDate || trn.endDate) && (
+                      <div style={{ color: "#666", marginTop: "2px", marginBottom: "4px" }}>
+                        {trn.startDate && formatDate(trn.startDate)} {trn.endDate && `– ${formatDate(trn.endDate)}`}
+                      </div>
+                    )}
+                    {trn.description && trn.description.length > 0 && (
+                      <ul style={{ margin: 0, paddingLeft: "20px", color: "#444" }}>
+                        {trn.description.filter(d => d.trim() !== "").map((desc, i) => (
+                          <li key={i} style={{ marginBottom: "4px" }}>{desc}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
-// ---------- Dashboard ----------
-export interface DashboardStats {
-  totalResumes: number;
-  atsScoreAvg: number;
-  jobOptimized: number;
-  downloads: number;
-}
-
-// ---------- Resume Data (Builder Wizard) ----------
-export interface ResumePersonalInfo {
-  fullName: string;
-  address: string;
-  phone: string;
-  email: string;
-  linkedIn: string;
-  github: string;
-}
-
-export interface ResumeEducation {
-  id: string;
-  university: string;
-  degree: string;
-  location: string;
-  startDate: string;
-  endDate: string;
-  cgpa: string;
-}
-
-export interface ResumeExperience {
-  id: string;
-  company: string;
-  role: string;
-  location: string;
-  startDate: string;
-  endDate: string;
-  bullets: string[];
-}
-
-export interface ResumeProject {
-  id: string;
-  title: string;
-  technologies: string;
-  date: string;
-  bullets: string[];
-}
-
-export interface ResumeTechnicalSkills {
-  languages: string[];
-  developerTools: string[];
-  frameworks: string[];
-}
-
-export interface ResumeLeadership {
-  id: string;
-  organization: string;
-  role: string;
-  duration: string;
-  bullets: string[];
-}
-
-export interface ResumeData {
-  personalInfo: ResumePersonalInfo;
-  education: ResumeEducation[];
-  coursework: string[];
-  experience: ResumeExperience[];
-  projects: ResumeProject[];
-  technicalSkills: ResumeTechnicalSkills;
-  leadership: ResumeLeadership[];
-}
-
-// ---------- Builder Steps ----------
-export type BuilderStep =
-  | "personal-info"
-  | "education"
-  | "coursework"
-  | "experience"
-  | "projects"
-  | "technical-skills"
-  | "leadership"
-  | "template";
-
-export interface BuilderState {
-  currentStep: number;
-  totalSteps: number;
-  resumeData: ResumeData;
-  selectedTemplateId: string | null;
-}
-
-// ---------- Settings ----------
-export interface UserSettings {
-  profile: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    avatarUrl?: string;
-  };
-  preferences: {
-    defaultTemplate: string;
-    aiTone: "professional" | "creative" | "casual";
-    autoSave: boolean;
-  };
-  billing: {
-    plan: "free" | "pro" | "enterprise";
-    nextBillingDate?: string;
-    paymentMethod?: string;
-  };
-}
-
-// ---------- Navigation ----------
-export interface NavItem {
-  label: string;
-  href: string;
-  icon: string;
-  active?: boolean;
-}
+            {publications && publications.length > 0 && (
+              <div style={{ marginBottom: "25px" }}>
+                <h2
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 300,
+                    textTransform: "uppercase",
+                    letterSpacing: "1px",
+                    color: "#888",
+                    margin: "0 0 10px 0",
+                  }}
+                >
+                  Publications
+                </h2>
+                {publications.map((pub) => (
+                  <div key={pub.id} style={{ marginBottom: "15px" }}>
+                    <div style={{ fontSize: "14px", fontWeight: 600, color: "#111", textTransform: "uppercase" }}>
+                      {pub.title}
+                    </div>
+                    <div style={{ color: "#666", marginTop: "2px", marginBottom: "4px" }}>
+                      {pub.publisher} {pub.publicationDate && `| ${formatDate(pub.publicationDate)}`}
+                    </div>
+                    {pub.link && (
+                      <div style={{ color: "#0066cc", marginTop: "2px", marginBottom: "4px", fontSize: "11px" }}>
+                        {pub.link}
+                      </div>
+                    )}
+                    {pub.description && pub.description.length > 0 && (
+                      <ul style={{ margin: 0, paddingLeft: "20px", color: "#444" }}>
+                        {pub.description.filter(d => d.trim() !== "").map((desc, i) => (
+                          <li key={i} style={{ marginBottom: "4px" }}>{desc}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+);
 </file>
 
 <file path="app/(dashboard)/dashboard/page.tsx">
@@ -6089,6 +6374,149 @@ export default async function LandingPage() {
 }
 </file>
 
+<file path="components/forms/template-selection-step.tsx">
+"use client";
+
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle, FileText, GraduationCap, Briefcase, Code, Award, BookOpen, Wrench, Users, Library, Target } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { TEMPLATE_CONFIGS, getTemplateIds } from "@/lib/template-configs";
+import type { FormSectionKey } from "@/lib/template-configs";
+import Image from "next/image";
+
+interface TemplateSelectionStepProps {
+  selectedTemplateId: string | null;
+  onSelect: (id: string) => void;
+}
+
+// Icons for each section key
+const SECTION_ICONS: Record<FormSectionKey, React.ReactNode> = {
+  "personal-info": <FileText className="w-3.5 h-3.5" />,
+  "education": <GraduationCap className="w-3.5 h-3.5" />,
+  "coursework": <BookOpen className="w-3.5 h-3.5" />,
+  "experience": <Briefcase className="w-3.5 h-3.5" />,
+  "projects": <Code className="w-3.5 h-3.5" />,
+  "technical-skills": <Wrench className="w-3.5 h-3.5" />,
+  "leadership": <Users className="w-3.5 h-3.5" />,
+  "training": <Award className="w-3.5 h-3.5" />,
+  "publications": <Library className="w-3.5 h-3.5" />,
+  "objective": <Target className="w-3.5 h-3.5" />,
+};
+
+const SECTION_LABELS: Record<FormSectionKey, string> = {
+  "personal-info": "Personal Info",
+  "education": "Education",
+  "coursework": "Coursework",
+  "experience": "Experience",
+  "projects": "Projects",
+  "technical-skills": "Technical Skills",
+  "leadership": "Leadership",
+  "training": "Training",
+  "publications": "Publications",
+  "objective": "Objective",
+};
+
+
+export function TemplateSelectionStep({
+  selectedTemplateId,
+  onSelect,
+}: TemplateSelectionStepProps) {
+  const templateIds = getTemplateIds();
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      <div>
+        <h3 className="text-2xl font-bold mb-1">Choose a Template</h3>
+        <p className="text-muted-foreground">
+          Each template shows different sections tailored to the role you&apos;re targeting.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {templateIds.map((id) => {
+          const config = TEMPLATE_CONFIGS[id];
+          const isSelected = selectedTemplateId === id;
+
+          return (
+            <Card
+              key={id}
+              className={cn(
+                "cursor-pointer transition-all duration-200 overflow-hidden border-2 flex flex-col",
+                isSelected
+                  ? "border-primary shadow-lg shadow-primary/10 ring-2 ring-primary/20"
+                  : "border-border hover:border-primary/40 hover:shadow-md"
+              )}
+              onClick={() => onSelect(id)}
+            >
+              {/* Mini preview */}
+              <div className="aspect-[1/1.2] bg-white relative overflow-hidden">
+                <Image
+                  src={config.previewImage}
+                  alt={`${config.name} preview`}
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  priority
+                  className="object-cover object-top"
+                />
+
+                {isSelected && (
+                  <div className="absolute top-2 right-2">
+                    <div className="bg-primary text-primary-foreground rounded-full p-1">
+                      <CheckCircle className="w-4 h-4" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Template info */}
+              <div className="p-4 bg-card border-t border-border flex-1 flex flex-col">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold text-foreground text-sm">{config.name}</h4>
+                  <Badge
+                    className={cn(
+                      "text-[10px] px-1.5 py-0.5",
+                      config.badgeColor.bg,
+                      config.badgeColor.text,
+                      config.badgeColor.border
+                    )}
+                  >
+                    {config.badge}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mb-3 flex-1">
+                  {config.description}
+                </p>
+
+                {/* Section preview list */}
+                <div className="space-y-1 pt-2 border-t border-border">
+                  <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground">
+                    Sections included
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {config.sections
+                      .filter((s) => s !== "personal-info")
+                      .map((section) => (
+                        <span
+                          key={section}
+                          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md"
+                        >
+                          {SECTION_ICONS[section]}
+                          {SECTION_LABELS[section]}
+                        </span>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+</file>
+
 <file path="components/layout/top-app-bar.tsx">
 "use client";
 
@@ -6153,586 +6581,422 @@ export function TopAppBar({ title = "Dashboard" }: TopAppBarProps) {
 }
 </file>
 
-<file path="hooks/use-resume-builder.ts">
-"use client";
+<file path="lib/template-configs.ts">
+import type { ResumePersonalInfo, BuilderStep } from "@/types";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
-import type {
-  ResumeData,
-  ResumeEducation,
-  ResumeExperience,
-  ResumeProject,
-  ResumeLeadership,
-} from "@/types";
-import { getStepsForTemplate } from "@/lib/template-configs";
-import type { StepInfo } from "@/lib/template-configs";
+// All possible form section keys (excludes "template" which is always step 1)
+export type FormSectionKey = Exclude<BuilderStep, "template">;
 
-const STORAGE_KEY = "resumeai-draft";
-
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 9);
+export interface TemplateConfig {
+  id: string;
+  name: string;
+  description: string;
+  badge: string;
+  badgeColor: { bg: string; text: string; border: string };
+  sections: FormSectionKey[];
+  personalInfoFields: (keyof ResumePersonalInfo)[];
+  requiredPersonalInfoFields: (keyof ResumePersonalInfo)[];
+  previewImage: string;
 }
 
-export function getEmptyResumeData(): ResumeData {
-  return {
-    personalInfo: {
-      fullName: "",
-      address: "",
-      phone: "",
-      email: "",
-      linkedIn: "",
-      github: "",
+export interface StepInfo {
+  key: BuilderStep;
+  label: string;
+  number: number;
+}
+
+// Labels for each section key
+export const SECTION_LABELS: Record<FormSectionKey, string> = {
+  "personal-info": "Personal Info",
+  objective: "Objective",
+  "education": "Education",
+  "coursework": "Coursework",
+  "experience": "Experience",
+  "projects": "Projects",
+  "technical-skills": "Skills",
+  "leadership": "Leadership",
+  "training": "Training",
+  "publications": "Publications",
+};
+
+// ─── Template Configs ────────────────────────────────────
+
+export const TEMPLATE_CONFIGS: Record<string, TemplateConfig> = {
+  "ats-professional": {
+    id: "ats-professional",
+    name: "ATS Professional",
+    description:
+      "Clean, structured layout optimized for Applicant Tracking Systems. Uses serif headings, clear section dividers, and professional formatting.",
+    badge: "ATS Friendly",
+    badgeColor: {
+      bg: "bg-emerald-100 dark:bg-emerald-950/30",
+      text: "text-emerald-700 dark:text-emerald-400",
+      border: "border-emerald-200 dark:border-emerald-800",
     },
-    education: [],
-    coursework: [],
-    experience: [],
-    projects: [],
-    technicalSkills: {
-      languages: [],
-      developerTools: [],
-      frameworks: [],
+    sections: [
+      "personal-info",
+      "education",
+      "coursework",
+      "experience",
+      "projects",
+      "technical-skills",
+      "leadership",
+    ],
+    personalInfoFields: ["fullName", "address", "phone", "email", "linkedIn", "github"],
+    requiredPersonalInfoFields: ["fullName", "email"],
+    previewImage: "/templates/ats-professional.png",
+  },
+
+  "modern-two-column": {
+    id: "modern-two-column",
+    name: "Modern Two-Column",
+    description:
+      "A clean, modern two-column layout that highlights education and skills on the left, with experience and projects on the right.",
+    badge: "Modern",
+    badgeColor: {
+      bg: "bg-blue-100 dark:bg-blue-950/30",
+      text: "text-blue-700 dark:text-blue-400",
+      border: "border-blue-200 dark:border-blue-800",
     },
-    leadership: [],
-  };
-}
+    sections: [
+      "personal-info",
+      "education",
+      "coursework",
+      "experience",
+      "projects",
+      "technical-skills",
+      "training",
+      "publications",
+    ],
+    personalInfoFields: ["fullName", "address", "phone", "email", "linkedIn", "github"],
+    requiredPersonalInfoFields: ["fullName", "email"],
+    previewImage: "/templates/modern-two-column.png",
+  },
 
-export function createEmptyEducation(): ResumeEducation {
-  return {
-    id: generateId(),
-    university: "",
-    degree: "",
-    location: "",
-    startDate: "",
-    endDate: "",
-    cgpa: "",
-  };
-}
-
-export function createEmptyExperience(): ResumeExperience {
-  return {
-    id: generateId(),
-    company: "",
-    role: "",
-    location: "",
-    startDate: "",
-    endDate: "",
-    bullets: [""],
-  };
-}
-
-export function createEmptyProject(): ResumeProject {
-  return {
-    id: generateId(),
-    title: "",
-    technologies: "",
-    date: "",
-    bullets: [""],
-  };
-}
-
-export function createEmptyLeadership(): ResumeLeadership {
-  return {
-    id: generateId(),
-    organization: "",
-    role: "",
-    duration: "",
-    bullets: [""],
-  };
-}
-
-export function useResumeBuilder(templateId: string | null) {
-  const searchParams = useSearchParams();
-  const resumeId = searchParams?.get("id");
-  const isNew = searchParams?.get("new") === "1";
-
-  const [resumeData, setResumeData] = useState<ResumeData>(getEmptyResumeData);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [hydrated, setHydrated] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isLoading, setIsLoading] = useState(!!resumeId);
-  const [loadedTemplateId, setLoadedTemplateId] = useState<string | null>(null);
-
-  // Derive steps dynamically from the selected template
-  const steps: StepInfo[] = useMemo(
-    () => getStepsForTemplate(templateId),
-    [templateId]
-  );
-
-  // Clamp currentStep when steps array changes (template switch)
-  useEffect(() => {
-    setCurrentStep((prev) => Math.min(prev, steps.length - 1));
-  }, [steps.length]);
-
-  // Load from API if ID is present, else restore from localStorage
-  useEffect(() => {
-    async function init() {
-      if (resumeId) {
-        try {
-          const res = await fetch(`/api/resumes/${resumeId}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.resume_data) {
-              const empty = getEmptyResumeData();
-              const loaded = data.resume_data as Partial<ResumeData>;
-              setResumeData({
-                personalInfo: { ...empty.personalInfo, ...(loaded.personalInfo ?? {}) },
-                education: Array.isArray(loaded.education) ? loaded.education : empty.education,
-                coursework: Array.isArray(loaded.coursework) ? loaded.coursework : empty.coursework,
-                experience: Array.isArray(loaded.experience) ? loaded.experience : empty.experience,
-                projects: Array.isArray(loaded.projects) ? loaded.projects : empty.projects,
-                technicalSkills: {
-                  ...empty.technicalSkills,
-                  ...(loaded.technicalSkills ?? {}),
-                },
-                leadership: Array.isArray(loaded.leadership) ? loaded.leadership : empty.leadership,
-              });
-            }
-            if (data.template_id) {
-              setLoadedTemplateId(data.template_id);
-            }
-          }
-        } catch (error) {
-          console.error("Failed to load resume from API", error);
-        } finally {
-          setIsLoading(false);
-          setHydrated(true);
-        }
-      } else if (isNew) {
-        setResumeData(getEmptyResumeData());
-        setIsLoading(false);
-        setHydrated(true);
-      } else {
-        try {
-          const saved = localStorage.getItem(STORAGE_KEY);
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (parsed.resumeData) setResumeData(parsed.resumeData);
-            if (typeof parsed.currentStep === "number") setCurrentStep(parsed.currentStep);
-          }
-        } catch {
-          // ignore parse errors
-        }
-        setIsLoading(false);
-        setHydrated(true);
-      }
-    }
-    init();
-  }, [resumeId]);
-
-  // Auto-save to localStorage on changes
-  useEffect(() => {
-    if (!hydrated) return;
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ resumeData, currentStep, templateId })
-      );
-    } catch {
-      // ignore quota errors
-    }
-  }, [resumeData, currentStep, templateId, hydrated]);
-
-  const updateResumeData = useCallback(
-    (updater: (prev: ResumeData) => ResumeData) => {
-      setResumeData((prev) => updater(prev));
+  "classic-professional": {
+    id: "classic-professional",
+    name: "Classic Professional",
+    description:
+      "A clean, executive layout featuring a clear objective, education, skills, and experience flow.",
+    badge: "Executive",
+    badgeColor: {
+      bg: "bg-amber-100 dark:bg-amber-950/30",
+      text: "text-amber-700 dark:text-amber-400",
+      border: "border-amber-200 dark:border-amber-800",
     },
-    []
-  );
+    sections: [
+      "personal-info",
+      "objective",
+      "education",
+      "technical-skills",
+      "experience",
+    ],
+    personalInfoFields: ["fullName", "currentRole", "address", "phone", "email", "linkedIn", "github"],
+    requiredPersonalInfoFields: ["fullName", "email"],
+    previewImage: "/templates/resume_template_3.png",
+  },
+};
 
-  const nextStep = useCallback(() => {
-    setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
-  }, [steps.length]);
+// ─── Helpers ─────────────────────────────────────────────
 
-  const prevStep = useCallback(() => {
-    setCurrentStep((prev) => Math.max(prev - 1, 0));
-  }, []);
+/** Get the ordered list of template IDs for rendering */
+export function getTemplateIds(): string[] {
+  return Object.keys(TEMPLATE_CONFIGS);
+}
 
-  const goToStep = useCallback(
-    (step: number) => {
-      setCurrentStep(Math.max(0, Math.min(step, steps.length - 1)));
-    },
-    [steps.length]
-  );
+/** Get a template config by id, falls back to ats-professional */
+export function getTemplateConfig(templateId: string | null): TemplateConfig {
+  if (templateId && TEMPLATE_CONFIGS[templateId]) {
+    return TEMPLATE_CONFIGS[templateId];
+  }
+  return TEMPLATE_CONFIGS["ats-professional"];
+}
 
-  const resetBuilder = useCallback(() => {
-    setResumeData(getEmptyResumeData());
-    setCurrentStep(0);
-    localStorage.removeItem(STORAGE_KEY);
-  }, []);
+/**
+ * Build the full wizard step array for a given template.
+ * Template selection is always step 1, then the template's sections follow.
+ */
+export function getStepsForTemplate(templateId: string | null): StepInfo[] {
+  const config = getTemplateConfig(templateId);
 
-  const saveToDatabase = useCallback(
-    async (title: string, currentTemplateId: string, dataToSave?: ResumeData) => {
-      const payload = dataToSave ?? resumeData;
-      setIsSaving(true);
-      try {
-        const url = resumeId ? `/api/resumes/${resumeId}` : "/api/resumes";
-        const method = resumeId ? "PATCH" : "POST";
-        const res = await fetch(url, {
-          method,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title,
-            template_id: currentTemplateId,
-            resume_data: payload,
-            status: "published",
-          }),
-        });
-        if (!res.ok) throw new Error("Failed to save resume");
-        return await res.json();
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [resumeData, resumeId]
-  );
+  const steps: StepInfo[] = [
+    { key: "template", label: "Template", number: 1 },
+  ];
 
-  return {
-    resumeData,
-    currentStep,
-    hydrated,
-    steps,
-    updateResumeData,
-    nextStep,
-    prevStep,
-    goToStep,
-    resetBuilder,
-    saveToDatabase,
-    isSaving,
-    isLoading,
-    loadedTemplateId,
-    totalSteps: steps.length,
-    currentStepInfo: steps[currentStep] ?? steps[0],
-    isFirstStep: currentStep === 0,
-    isLastStep: currentStep === steps.length - 1,
-  };
+  config.sections.forEach((sectionKey, idx) => {
+    steps.push({
+      key: sectionKey,
+      label: SECTION_LABELS[sectionKey],
+      number: idx + 2, // starts at 2 since template is 1
+    });
+  });
+
+  return steps;
 }
 </file>
 
-<file path="app/(dashboard)/builder/page.tsx">
-"use client";
+<file path="types/index.ts">
+// ==========================================
+// ResumeAI — TypeScript Type Definitions
+// ==========================================
 
-import { useState, useRef, useCallback, Suspense, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-import { useResumeBuilder } from "@/hooks/use-resume-builder";
-import { usePdfGenerator } from "@/hooks/use-pdf-generator";
-import { getTemplateConfig } from "@/lib/template-configs";
-
-import { PersonalInfoStep } from "@/components/forms/personal-info-step";
-import { EducationStep } from "@/components/forms/education-step";
-import { CourseworkStep } from "@/components/forms/coursework-step";
-import { ExperienceStep } from "@/components/forms/experience-step";
-import { ProjectsStep } from "@/components/forms/projects-step";
-import { TechnicalSkillsStep } from "@/components/forms/technical-skills-step";
-import { LeadershipStep } from "@/components/forms/leadership-step";
-import { TemplateSelectionStep } from "@/components/forms/template-selection-step";
-import { GeneratingScreen } from "@/components/forms/generating-screen";
-import { SuccessScreen } from "@/components/forms/success-screen";
-import { ATSTemplate } from "@/components/resume-templates/ats-template";
-import { ModernTwoColumnTemplate } from "@/components/resume-templates/modern-two-column-template";
-
-type BuilderPhase = "editing" | "generating" | "success";
-
-function BuilderContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const resumeId = searchParams?.get("id");
-  const templateParam = searchParams?.get("template");
-
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
-    resumeId ? null : (templateParam || "ats-professional")
-  );
-
-  const builder = useResumeBuilder(selectedTemplateId);
-
-  useEffect(() => {
-    if (builder.loadedTemplateId) {
-      setSelectedTemplateId(builder.loadedTemplateId);
-    }
-  }, [builder.loadedTemplateId]);
-  const templateRef = useRef<HTMLDivElement>(null);
-  const { generatePDF } = usePdfGenerator(templateRef);
-
-  const [phase, setPhase] = useState<BuilderPhase>("editing");
-
-  const templateConfig = getTemplateConfig(selectedTemplateId);
-
-  const progress =
-    ((builder.currentStep + 1) / builder.totalSteps) * 100;
-
-  const handleGenerate = useCallback(async () => {
-    try {
-      const title = builder.resumeData.personalInfo.fullName 
-        ? `${builder.resumeData.personalInfo.fullName} Resume`
-        : "Untitled Resume";
-      
-      const currentData = builder.resumeData;
-      await builder.saveToDatabase(
-        title,
-        selectedTemplateId || "ats-professional",
-        currentData
-      );
-    } catch (error) {
-      console.error("Failed to save resume:", error);
-      // We still proceed to generating so the user can download their PDF even if DB save fails
-    }
-    setPhase("generating");
-  }, [builder, selectedTemplateId]);
-
-  const handleGenerateComplete = useCallback(async () => {
-    await generatePDF();
-    setPhase("success");
-  }, [generatePDF]);
-
-  const handleDownloadAgain = useCallback(async () => {
-    await generatePDF();
-  }, [generatePDF]);
-
-  const handleCreateAnother = useCallback(() => {
-    builder.resetBuilder();
-    setPhase("editing");
-    setSelectedTemplateId(null);
-    router.push("/builder?new=1");
-  }, [builder, router]);
-
-  const handleTemplateSelect = useCallback(
-    (id: string) => {
-      setSelectedTemplateId(id);
-      // If user is on step 0 (template selection), stay there.
-      // If they switched mid-way, clamp step to step 1 (first form step)
-      // so they review their data in the new step order.
-      if (builder.currentStep > 0) {
-        builder.goToStep(1);
-      }
-    },
-    [builder]
-  );
-
-  // Don't render until localStorage has been hydrated and API fetch is complete
-  if (!builder.hydrated || builder.isLoading) {
-    return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
-
-  // Render the step component for a given step key
-  const renderStep = () => {
-    const key = builder.currentStepInfo.key;
-
-    switch (key) {
-      case "template":
-        return (
-          <TemplateSelectionStep
-            selectedTemplateId={selectedTemplateId}
-            onSelect={handleTemplateSelect}
-          />
-        );
-      case "personal-info":
-        return (
-          <PersonalInfoStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-            visibleFields={templateConfig.personalInfoFields}
-            requiredFields={templateConfig.requiredPersonalInfoFields}
-          />
-        );
-      case "education":
-        return (
-          <EducationStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "coursework":
-        return (
-          <CourseworkStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "experience":
-        return (
-          <ExperienceStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "projects":
-        return (
-          <ProjectsStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "technical-skills":
-        return (
-          <TechnicalSkillsStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      case "leadership":
-        return (
-          <LeadershipStep
-            data={builder.resumeData}
-            onChange={builder.updateResumeData}
-          />
-        );
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div className="flex flex-col min-h-[calc(100vh-80px)] -m-4 md:-m-6">
-      {/* Hidden template for PDF generation */}
-      <div
-        style={{
-          position: "absolute",
-          left: "-9999px",
-          top: 0,
-        }}
-        aria-hidden="true"
-      >
-        {selectedTemplateId === "ats-professional" && (
-          <ATSTemplate ref={templateRef} data={builder.resumeData} />
-        )}
-        {selectedTemplateId === "modern-two-column" && (
-          <ModernTwoColumnTemplate ref={templateRef} data={builder.resumeData} />
-        )}
-      </div>
-
-      {/* Phase: Generating */}
-      {phase === "generating" && (
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg">
-            <GeneratingScreen onComplete={handleGenerateComplete} />
-          </div>
-        </div>
-      )}
-
-      {/* Phase: Success */}
-      {phase === "success" && (
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg">
-            <SuccessScreen
-              onDownloadAgain={handleDownloadAgain}
-              onCreateAnother={handleCreateAnother}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Phase: Editing (wizard) */}
-      {phase === "editing" && (
-        <>
-          {/* Top Progress Bar */}
-          <div className="bg-card border-b border-border p-4 shrink-0 shadow-sm z-10">
-            <div className="max-w-3xl mx-auto">
-              {/* Step indicators */}
-              <div className="hidden sm:flex justify-between mb-3">
-                {builder.steps.map((step, idx) => (
-                  <button
-                    key={step.key}
-                    onClick={() => builder.goToStep(idx)}
-                    className={cn(
-                      "flex items-center gap-1.5 text-xs font-medium transition-colors cursor-pointer",
-                      idx <= builder.currentStep
-                        ? "text-primary"
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors",
-                        idx < builder.currentStep
-                          ? "bg-primary border-primary text-primary-foreground"
-                          : idx === builder.currentStep
-                            ? "border-primary text-primary"
-                            : "border-muted text-muted-foreground"
-                      )}
-                    >
-                      {idx < builder.currentStep ? "✓" : step.number}
-                    </span>
-                    <span className="hidden lg:inline">{step.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Mobile step label */}
-              <div className="sm:hidden text-sm font-medium text-muted-foreground mb-2">
-                Step {builder.currentStep + 1} of {builder.totalSteps}:{" "}
-                <span className="text-foreground">
-                  {builder.currentStepInfo.label}
-                </span>
-              </div>
-
-              <Progress value={progress} className="h-2 bg-muted" />
-            </div>
-          </div>
-
-          {/* Main content area */}
-          <div className="flex-1 overflow-y-auto p-4 md:p-6">
-            <div className="max-w-3xl mx-auto">
-              {/* Step content */}
-              {renderStep()}
-
-              {/* Navigation buttons */}
-              <div className="flex items-center justify-between mt-10 pb-6">
-                <Button
-                  variant="outline"
-                  onClick={builder.prevStep}
-                  disabled={builder.isFirstStep}
-                  className="bg-background"
-                >
-                  <ChevronLeft className="w-4 h-4 mr-2" />
-                  Back
-                </Button>
-
-                {builder.isLastStep ? (
-                  <Button
-                    onClick={handleGenerate}
-                    className="bg-primary text-primary-foreground shadow-sm"
-                    disabled={!selectedTemplateId}
-                  >
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Generate Resume
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={builder.nextStep}
-                    className="bg-primary text-primary-foreground"
-                  >
-                    Next Step
-                    <ChevronRight className="w-4 h-4 ml-2" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
+// ---------- User ----------
+export interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl?: string;
+  plan: "free" | "pro" | "enterprise";
+  createdAt: string;
+  updatedAt: string;
 }
 
-export default function BuilderPage() {
-  return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center h-[60vh]">
-        <div className="animate-pulse text-muted-foreground">Loading Builder...</div>
-      </div>
-    }>
-      <BuilderContent />
-    </Suspense>
-  );
+// ---------- Resume Sections ----------
+export interface PersonalInfo {
+  fullName: string;
+  email: string;
+  phone: string;
+  location: string;
+  linkedIn?: string;
+  website?: string;
+  currentRole: string;
+  summary: string;
+}
+
+export interface WorkExperience {
+  id: string;
+  company: string;
+  role: string;
+  location: string;
+  startDate: string;
+  endDate: string | null;
+  current: boolean;
+  description: string;
+  highlights: string[];
+}
+
+export interface Education {
+  id: string;
+  institution: string;
+  degree: string;
+  field: string;
+  startDate: string;
+  endDate: string;
+  gpa?: string;
+  highlights: string[];
+}
+
+export interface Skill {
+  id: string;
+  name: string;
+  category: "technical" | "soft" | "language" | "tool";
+  proficiency?: "beginner" | "intermediate" | "advanced" | "expert";
+}
+
+export interface Certification {
+  id: string;
+  name: string;
+  issuer: string;
+  date: string;
+  url?: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description: string;
+  url?: string;
+  technologies: string[];
+}
+
+// ---------- Resume ----------
+export interface Resume {
+  id: string;
+  user_id: string;
+  title: string;
+  template_id: string;
+  resume_data: ResumeData;
+  ats_score: number | null;
+  status: "draft" | "published";
+  created_at: string;
+  updated_at: string;
+}
+
+// ---------- Resume Template ----------
+export interface ResumeTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  previewUrl: string;
+  atsOptimized: boolean;
+  matchScore?: number;
+  tags: string[];
+}
+
+// ---------- ATS Analysis ----------
+export interface ATSAnalysis {
+  overallScore: number;
+  matchedSkills: string[];
+  missingKeywords: string[];
+  suggestions: ATSSuggestion[];
+}
+
+export interface ATSSuggestion {
+  id: string;
+  icon: string;
+  text: string;
+  type: "improvement" | "warning" | "tip";
+}
+
+// ---------- Job Optimization ----------
+export interface JobOptimization {
+  jobDescription: string;
+  analysis: ATSAnalysis | null;
+  isAnalyzing: boolean;
+}
+
+// ---------- Dashboard ----------
+export interface DashboardStats {
+  totalResumes: number;
+  atsScoreAvg: number;
+  jobOptimized: number;
+  downloads: number;
+}
+
+// ---------- Resume Data (Builder Wizard) ----------
+export interface ResumePersonalInfo {
+  fullName: string;
+  address: string;
+  phone: string;
+  email: string;
+  linkedIn: string;
+  github: string;
+  currentRole: string;
+}
+
+export interface ResumeEducation {
+  id: string;
+  university: string;
+  degree: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  cgpa: string;
+}
+
+export interface ResumeExperience {
+  id: string;
+  company: string;
+  role: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  bullets: string[];
+}
+
+export interface ResumeProject {
+  id: string;
+  title: string;
+  technologies: string;
+  date: string;
+  bullets: string[];
+}
+
+export interface ResumeTechnicalSkills {
+  languages: string[];
+  developerTools: string[];
+  frameworks: string[];
+}
+
+export interface ResumeLeadership {
+  id: string;
+  organization: string;
+  role: string;
+  duration: string;
+  bullets: string[];
+}
+
+export interface ResumeTraining {
+  id: string;
+  title: string;
+  organization: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  description: string[];
+}
+
+export interface ResumePublication {
+  id: string;
+  title: string;
+  publisher: string;
+  publicationDate: string;
+  link: string;
+  description: string[];
+}
+
+export interface ResumeData {
+  personalInfo: ResumePersonalInfo;
+  objective: string;
+  education: ResumeEducation[];
+  coursework: string[];
+  experience: ResumeExperience[];
+  projects: ResumeProject[];
+  technicalSkills: ResumeTechnicalSkills;
+  leadership: ResumeLeadership[];
+  training: ResumeTraining[];
+  publications: ResumePublication[];
+}
+
+// ---------- Builder Steps ----------
+export type BuilderStep =
+  | "personal-info"
+  | "objective"
+  | "education"
+  | "coursework"
+  | "experience"
+  | "projects"
+  | "technical-skills"
+  | "leadership"
+  | "training"
+  | "publications"
+  | "template";
+
+export interface BuilderState {
+  currentStep: number;
+  totalSteps: number;
+  resumeData: ResumeData;
+  selectedTemplateId: string | null;
+}
+
+// ---------- Settings ----------
+export interface UserSettings {
+  profile: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    avatarUrl?: string;
+  };
+  preferences: {
+    defaultTemplate: string;
+    aiTone: "professional" | "creative" | "casual";
+    autoSave: boolean;
+  };
+  billing: {
+    plan: "free" | "pro" | "enterprise";
+    nextBillingDate?: string;
+    paymentMethod?: string;
+  };
+}
+
+// ---------- Navigation ----------
+export interface NavItem {
+  label: string;
+  href: string;
+  icon: string;
+  active?: boolean;
 }
 </file>
 
@@ -6867,6 +7131,294 @@ export function SideNavbar({ className }: { className?: string }) {
 }
 </file>
 
+<file path="hooks/use-resume-builder.ts">
+"use client";
+
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
+import type {
+  ResumeData,
+  ResumeEducation,
+  ResumeExperience,
+  ResumeProject,
+  ResumeLeadership,
+  ResumeTraining,
+  ResumePublication,
+} from "@/types";
+import { getStepsForTemplate } from "@/lib/template-configs";
+import type { StepInfo } from "@/lib/template-configs";
+
+const STORAGE_KEY = "resumeai-draft";
+
+function generateId(): string {
+  return Math.random().toString(36).substring(2, 9);
+}
+
+export function getEmptyResumeData(): ResumeData {
+  return {
+    personalInfo: {
+      fullName: "",
+      address: "",
+      phone: "",
+      email: "",
+      linkedIn: "",
+      github: "",
+      currentRole: "",
+    },
+    objective: "",
+    education: [],
+    coursework: [],
+    experience: [],
+    projects: [],
+    technicalSkills: {
+      languages: [],
+      developerTools: [],
+      frameworks: [],
+    },
+    leadership: [],
+    training: [],
+    publications: [],
+  };
+}
+
+export function createEmptyEducation(): ResumeEducation {
+  return {
+    id: generateId(),
+    university: "",
+    degree: "",
+    location: "",
+    startDate: "",
+    endDate: "",
+    cgpa: "",
+  };
+}
+
+export function createEmptyExperience(): ResumeExperience {
+  return {
+    id: generateId(),
+    company: "",
+    role: "",
+    location: "",
+    startDate: "",
+    endDate: "",
+    bullets: [""],
+  };
+}
+
+export function createEmptyProject(): ResumeProject {
+  return {
+    id: generateId(),
+    title: "",
+    technologies: "",
+    date: "",
+    bullets: [""],
+  };
+}
+
+export function createEmptyLeadership(): ResumeLeadership {
+  return {
+    id: generateId(),
+    organization: "",
+    role: "",
+    duration: "",
+    bullets: [""],
+  };
+}
+
+export function createEmptyTraining(): ResumeTraining {
+  return {
+    id: generateId(),
+    title: "",
+    organization: "",
+    location: "",
+    startDate: "",
+    endDate: "",
+    description: [""],
+  };
+}
+
+export function createEmptyPublication(): ResumePublication {
+  return {
+    id: generateId(),
+    title: "",
+    publisher: "",
+    publicationDate: "",
+    link: "",
+    description: [""],
+  };
+}
+
+export function useResumeBuilder(templateId: string | null) {
+  const searchParams = useSearchParams();
+  const resumeId = searchParams?.get("id");
+  const isNew = searchParams?.get("new") === "1";
+
+  const [resumeData, setResumeData] = useState<ResumeData>(getEmptyResumeData);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [hydrated, setHydrated] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(!!resumeId);
+  const [loadedTemplateId, setLoadedTemplateId] = useState<string | null>(null);
+
+  // Derive steps dynamically from the selected template
+  const steps: StepInfo[] = useMemo(
+    () => getStepsForTemplate(templateId),
+    [templateId]
+  );
+
+  // Clamp currentStep when steps array changes (template switch)
+  useEffect(() => {
+    setCurrentStep((prev) => Math.min(prev, steps.length - 1));
+  }, [steps.length]);
+
+  // Load from API if ID is present, else restore from localStorage
+  useEffect(() => {
+    async function init() {
+      if (resumeId) {
+        try {
+          const res = await fetch(`/api/resumes/${resumeId}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.resume_data) {
+              const empty = getEmptyResumeData();
+              const loaded = data.resume_data as Partial<ResumeData>;
+              setResumeData({
+                personalInfo: { ...empty.personalInfo, ...(loaded.personalInfo ?? {}) },
+                objective: loaded.objective ?? empty.objective,
+                education: Array.isArray(loaded.education) ? loaded.education : empty.education,
+                coursework: Array.isArray(loaded.coursework) ? loaded.coursework : empty.coursework,
+                experience: Array.isArray(loaded.experience) ? loaded.experience : empty.experience,
+                projects: Array.isArray(loaded.projects) ? loaded.projects : empty.projects,
+                technicalSkills: {
+                  ...empty.technicalSkills,
+                  ...(loaded.technicalSkills ?? {}),
+                },
+                leadership: Array.isArray(loaded.leadership) ? loaded.leadership : empty.leadership,
+                training: Array.isArray(loaded.training) ? loaded.training : empty.training,
+                publications: Array.isArray(loaded.publications) ? loaded.publications : empty.publications,
+              });
+            }
+            if (data.template_id) {
+              setLoadedTemplateId(data.template_id);
+            }
+          }
+        } catch (error) {
+          console.error("Failed to load resume from API", error);
+        } finally {
+          setIsLoading(false);
+          setHydrated(true);
+        }
+      } else if (isNew) {
+        setResumeData(getEmptyResumeData());
+        setIsLoading(false);
+        setHydrated(true);
+      } else {
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.resumeData) setResumeData(parsed.resumeData);
+            if (typeof parsed.currentStep === "number") setCurrentStep(parsed.currentStep);
+          }
+        } catch {
+          // ignore parse errors
+        }
+        setIsLoading(false);
+        setHydrated(true);
+      }
+    }
+    init();
+  }, [resumeId]);
+
+  // Auto-save to localStorage on changes
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ resumeData, currentStep, templateId })
+      );
+    } catch {
+      // ignore quota errors
+    }
+  }, [resumeData, currentStep, templateId, hydrated]);
+
+  const updateResumeData = useCallback(
+    (updater: (prev: ResumeData) => ResumeData) => {
+      setResumeData((prev) => updater(prev));
+    },
+    []
+  );
+
+  const nextStep = useCallback(() => {
+    setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
+  }, [steps.length]);
+
+  const prevStep = useCallback(() => {
+    setCurrentStep((prev) => Math.max(prev - 1, 0));
+  }, []);
+
+  const goToStep = useCallback(
+    (step: number) => {
+      setCurrentStep(Math.max(0, Math.min(step, steps.length - 1)));
+    },
+    [steps.length]
+  );
+
+  const resetBuilder = useCallback(() => {
+    setResumeData(getEmptyResumeData());
+    setCurrentStep(0);
+    localStorage.removeItem(STORAGE_KEY);
+  }, []);
+
+  const saveToDatabase = useCallback(
+    async (title: string, currentTemplateId: string, dataToSave?: ResumeData) => {
+      const payload = dataToSave ?? resumeData;
+      setIsSaving(true);
+      try {
+        const url = resumeId ? `/api/resumes/${resumeId}` : "/api/resumes";
+        const method = resumeId ? "PATCH" : "POST";
+        const res = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            template_id: currentTemplateId,
+            resume_data: payload,
+            status: "published",
+          }),
+        });
+        if (!res.ok) throw new Error("Failed to save resume");
+        return await res.json();
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [resumeData, resumeId]
+  );
+
+  return {
+    resumeData,
+    currentStep,
+    hydrated,
+    steps,
+    updateResumeData,
+    nextStep,
+    prevStep,
+    goToStep,
+    resetBuilder,
+    saveToDatabase,
+    isSaving,
+    isLoading,
+    loadedTemplateId,
+    totalSteps: steps.length,
+    currentStepInfo: steps[currentStep] ?? steps[0],
+    isFirstStep: currentStep === 0,
+    isLastStep: currentStep === steps.length - 1,
+  };
+}
+</file>
+
 <file path="package.json">
 {
   "name": "resume_ai",
@@ -6903,6 +7455,284 @@ export function SideNavbar({ className }: { className?: string }) {
     "tailwindcss": "^4",
     "typescript": "^5"
   }
+}
+</file>
+
+<file path="app/(dashboard)/builder/page.tsx">
+"use client";
+
+import { useState, useRef, useCallback, Suspense, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+import { useResumeBuilder } from "@/hooks/use-resume-builder";
+import { usePdfGenerator } from "@/hooks/use-pdf-generator";
+import { getTemplateConfig } from "@/lib/template-configs";
+
+import { TemplateSelectionStep } from "@/components/forms/template-selection-step";
+import { GeneratingScreen } from "@/components/forms/generating-screen";
+import { SuccessScreen } from "@/components/forms/success-screen";
+
+import { SECTION_REGISTRY } from "@/lib/section-registry";
+import { TEMPLATE_REGISTRY } from "@/lib/template-registry";
+
+type BuilderPhase = "editing" | "generating" | "success";
+
+function BuilderContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const resumeId = searchParams?.get("id");
+  const templateParam = searchParams?.get("template");
+
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+    resumeId ? null : (templateParam || "ats-professional")
+  );
+
+  const builder = useResumeBuilder(selectedTemplateId);
+
+  useEffect(() => {
+    if (builder.loadedTemplateId) {
+      setSelectedTemplateId(builder.loadedTemplateId);
+    }
+  }, [builder.loadedTemplateId]);
+  const templateRef = useRef<HTMLDivElement>(null);
+  const { generatePDF } = usePdfGenerator(templateRef);
+
+  const [phase, setPhase] = useState<BuilderPhase>("editing");
+
+  const templateConfig = getTemplateConfig(selectedTemplateId);
+
+  const progress =
+    ((builder.currentStep + 1) / builder.totalSteps) * 100;
+
+  const handleGenerate = useCallback(async () => {
+    try {
+      const title = builder.resumeData.personalInfo.fullName 
+        ? `${builder.resumeData.personalInfo.fullName} Resume`
+        : "Untitled Resume";
+      
+      const currentData = builder.resumeData;
+      await builder.saveToDatabase(
+        title,
+        selectedTemplateId || "ats-professional",
+        currentData
+      );
+    } catch (error) {
+      console.error("Failed to save resume:", error);
+      // We still proceed to generating so the user can download their PDF even if DB save fails
+    }
+    setPhase("generating");
+  }, [builder, selectedTemplateId]);
+
+  const handleGenerateComplete = useCallback(async () => {
+    await generatePDF();
+    setPhase("success");
+  }, [generatePDF]);
+
+  const handleDownloadAgain = useCallback(async () => {
+    await generatePDF();
+  }, [generatePDF]);
+
+  const handleCreateAnother = useCallback(() => {
+    builder.resetBuilder();
+    setPhase("editing");
+    setSelectedTemplateId(null);
+    router.push("/builder?new=1");
+  }, [builder, router]);
+
+  const handleTemplateSelect = useCallback(
+    (id: string) => {
+      setSelectedTemplateId(id);
+      // If user is on step 0 (template selection), stay there.
+      // If they switched mid-way, clamp step to step 1 (first form step)
+      // so they review their data in the new step order.
+      if (builder.currentStep > 0) {
+        builder.goToStep(1);
+      }
+    },
+    [builder]
+  );
+
+  // Don't render until localStorage has been hydrated and API fetch is complete
+  if (!builder.hydrated || builder.isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  const renderStep = () => {
+    const key = builder.currentStepInfo.key;
+
+    if (key === "template") {
+      return (
+        <TemplateSelectionStep
+          selectedTemplateId={selectedTemplateId}
+          onSelect={handleTemplateSelect}
+        />
+      );
+    }
+
+    const StepComponent = SECTION_REGISTRY[key];
+    if (!StepComponent) return null;
+
+    return (
+      <StepComponent
+        data={builder.resumeData}
+        onChange={builder.updateResumeData}
+        visibleFields={key === "personal-info" ? templateConfig.personalInfoFields : undefined}
+        requiredFields={key === "personal-info" ? templateConfig.requiredPersonalInfoFields : undefined}
+      />
+    );
+  };
+
+  return (
+    <div className="flex flex-col min-h-[calc(100vh-80px)] -m-4 md:-m-6">
+      {/* Hidden template for PDF generation */}
+      <div
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          top: 0,
+        }}
+        aria-hidden="true"
+      >
+        {selectedTemplateId && TEMPLATE_REGISTRY[selectedTemplateId] && (
+          (() => {
+            const TemplateComponent = TEMPLATE_REGISTRY[selectedTemplateId].component;
+            return <TemplateComponent ref={templateRef} data={builder.resumeData} />;
+          })()
+        )}
+      </div>
+
+      {/* Phase: Generating */}
+      {phase === "generating" && (
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg">
+            <GeneratingScreen onComplete={handleGenerateComplete} />
+          </div>
+        </div>
+      )}
+
+      {/* Phase: Success */}
+      {phase === "success" && (
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg">
+            <SuccessScreen
+              onDownloadAgain={handleDownloadAgain}
+              onCreateAnother={handleCreateAnother}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Phase: Editing (wizard) */}
+      {phase === "editing" && (
+        <>
+          {/* Top Progress Bar */}
+          <div className="bg-card border-b border-border p-4 shrink-0 shadow-sm z-10">
+            <div className="max-w-3xl mx-auto">
+              {/* Step indicators */}
+              <div className="hidden sm:flex justify-between mb-3">
+                {builder.steps.map((step, idx) => (
+                  <button
+                    key={step.key}
+                    onClick={() => builder.goToStep(idx)}
+                    className={cn(
+                      "flex items-center gap-1.5 text-xs font-medium transition-colors cursor-pointer",
+                      idx <= builder.currentStep
+                        ? "text-primary"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors",
+                        idx < builder.currentStep
+                          ? "bg-primary border-primary text-primary-foreground"
+                          : idx === builder.currentStep
+                            ? "border-primary text-primary"
+                            : "border-muted text-muted-foreground"
+                      )}
+                    >
+                      {idx < builder.currentStep ? "✓" : step.number}
+                    </span>
+                    <span className="hidden lg:inline">{step.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Mobile step label */}
+              <div className="sm:hidden text-sm font-medium text-muted-foreground mb-2">
+                Step {builder.currentStep + 1} of {builder.totalSteps}:{" "}
+                <span className="text-foreground">
+                  {builder.currentStepInfo.label}
+                </span>
+              </div>
+
+              <Progress value={progress} className="h-2 bg-muted" />
+            </div>
+          </div>
+
+          {/* Main content area */}
+          <div className="flex-1 overflow-y-auto p-4 md:p-6">
+            <div className="max-w-3xl mx-auto">
+              {/* Step content */}
+              {renderStep()}
+
+              {/* Navigation buttons */}
+              <div className="flex items-center justify-between mt-10 pb-6">
+                <Button
+                  variant="outline"
+                  onClick={builder.prevStep}
+                  disabled={builder.isFirstStep}
+                  className="bg-background"
+                >
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+
+                {builder.isLastStep ? (
+                  <Button
+                    onClick={handleGenerate}
+                    className="bg-primary text-primary-foreground shadow-sm"
+                    disabled={!selectedTemplateId}
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate Resume
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={builder.nextStep}
+                    className="bg-primary text-primary-foreground"
+                  >
+                    Next Step
+                    <ChevronRight className="w-4 h-4 ml-2" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function BuilderPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="animate-pulse text-muted-foreground">Loading Builder...</div>
+      </div>
+    }>
+      <BuilderContent />
+    </Suspense>
+  );
 }
 </file>
 

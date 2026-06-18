@@ -2,7 +2,7 @@
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, FileText, GraduationCap, Briefcase, Code, Award, BookOpen, Wrench, Users, Library } from "lucide-react";
+import { CheckCircle, FileText, GraduationCap, Briefcase, Code, Award, BookOpen, Wrench, Users, Library, Target, FileSignature } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TEMPLATE_CONFIGS, getTemplateIds } from "@/lib/template-configs";
 import type { FormSectionKey } from "@/lib/template-configs";
@@ -24,6 +24,8 @@ const SECTION_ICONS: Record<FormSectionKey, React.ReactNode> = {
   "leadership": <Users className="w-3.5 h-3.5" />,
   "training": <Award className="w-3.5 h-3.5" />,
   "publications": <Library className="w-3.5 h-3.5" />,
+  "objective": <Target className="w-3.5 h-3.5" />,
+  "references": <FileSignature className="w-3.5 h-3.5" />,
 };
 
 const SECTION_LABELS: Record<FormSectionKey, string> = {
@@ -36,6 +38,8 @@ const SECTION_LABELS: Record<FormSectionKey, string> = {
   "leadership": "Leadership",
   "training": "Training",
   "publications": "Publications",
+  "objective": "Objective",
+  "references": "References",
 };
 
 

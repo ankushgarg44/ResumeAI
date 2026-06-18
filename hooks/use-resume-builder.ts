@@ -29,7 +29,9 @@ export function getEmptyResumeData(): ResumeData {
       email: "",
       linkedIn: "",
       github: "",
+      currentRole: "",
     },
+    objective: "",
     education: [],
     coursework: [],
     experience: [],
@@ -42,6 +44,7 @@ export function getEmptyResumeData(): ResumeData {
     leadership: [],
     training: [],
     publications: [],
+    references: "",
   };
 }
 
@@ -148,6 +151,7 @@ export function useResumeBuilder(templateId: string | null) {
               const loaded = data.resume_data as Partial<ResumeData>;
               setResumeData({
                 personalInfo: { ...empty.personalInfo, ...(loaded.personalInfo ?? {}) },
+                objective: loaded.objective ?? empty.objective,
                 education: Array.isArray(loaded.education) ? loaded.education : empty.education,
                 coursework: Array.isArray(loaded.coursework) ? loaded.coursework : empty.coursework,
                 experience: Array.isArray(loaded.experience) ? loaded.experience : empty.experience,
@@ -159,6 +163,7 @@ export function useResumeBuilder(templateId: string | null) {
                 leadership: Array.isArray(loaded.leadership) ? loaded.leadership : empty.leadership,
                 training: Array.isArray(loaded.training) ? loaded.training : empty.training,
                 publications: Array.isArray(loaded.publications) ? loaded.publications : empty.publications,
+                references: loaded.references ?? empty.references,
               });
             }
             if (data.template_id) {

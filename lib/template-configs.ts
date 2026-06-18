@@ -22,9 +22,9 @@ export interface StepInfo {
 }
 
 // Labels for each section key
-const SECTION_LABELS: Record<BuilderStep, string> = {
-  "template": "Template",
+export const SECTION_LABELS: Record<FormSectionKey, string> = {
   "personal-info": "Personal Info",
+  objective: "Objective",
   "education": "Education",
   "coursework": "Coursework",
   "experience": "Experience",
@@ -33,6 +33,7 @@ const SECTION_LABELS: Record<BuilderStep, string> = {
   "leadership": "Leadership",
   "training": "Training",
   "publications": "Publications",
+  "references": "References",
 };
 
 // ─── Template Configs ────────────────────────────────────
@@ -87,6 +88,31 @@ export const TEMPLATE_CONFIGS: Record<string, TemplateConfig> = {
     personalInfoFields: ["fullName", "address", "phone", "email", "linkedIn", "github"],
     requiredPersonalInfoFields: ["fullName", "email"],
     previewImage: "/templates/modern-two-column.png",
+  },
+
+  "classic-professional": {
+    id: "classic-professional",
+    name: "Classic Professional",
+    description:
+      "A clean, executive layout featuring a clear objective, education, skills, and experience flow.",
+    badge: "Executive",
+    badgeColor: {
+      bg: "bg-amber-100 dark:bg-amber-950/30",
+      text: "text-amber-700 dark:text-amber-400",
+      border: "border-amber-200 dark:border-amber-800",
+    },
+    sections: [
+      "personal-info",
+      "objective",
+      "education",
+      "technical-skills",
+      "experience",
+      "leadership",
+      "references",
+    ],
+    personalInfoFields: ["fullName", "currentRole", "address", "phone", "email", "linkedIn", "github"],
+    requiredPersonalInfoFields: ["fullName", "email"],
+    previewImage: "/templates/resume_template_3.png",
   },
 };
 

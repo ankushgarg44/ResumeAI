@@ -135,6 +135,7 @@ export interface ResumePersonalInfo {
   email: string;
   linkedIn: string;
   github: string;
+  currentRole: string;
 }
 
 export interface ResumeEducation {
@@ -200,6 +201,7 @@ export interface ResumePublication {
 
 export interface ResumeData {
   personalInfo: ResumePersonalInfo;
+  objective: string;
   education: ResumeEducation[];
   coursework: string[];
   experience: ResumeExperience[];
@@ -208,11 +210,13 @@ export interface ResumeData {
   leadership: ResumeLeadership[];
   training: ResumeTraining[];
   publications: ResumePublication[];
+  references: string;
 }
 
 // ---------- Builder Steps ----------
 export type BuilderStep =
   | "personal-info"
+  | "objective"
   | "education"
   | "coursework"
   | "experience"
@@ -221,6 +225,7 @@ export type BuilderStep =
   | "leadership"
   | "training"
   | "publications"
+  | "references"
   | "template";
 
 export interface BuilderState {

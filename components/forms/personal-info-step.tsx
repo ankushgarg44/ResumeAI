@@ -19,6 +19,7 @@ const ALL_FIELDS: (keyof ResumePersonalInfo)[] = [
   "email",
   "linkedIn",
   "github",
+  "currentRole",
 ];
 
 interface FieldDef {
@@ -35,6 +36,7 @@ const FIELD_DEFS: FieldDef[] = [
   { key: "email", label: "Email", placeholder: "email@gmail.com", type: "email" },
   { key: "linkedIn", label: "LinkedIn", placeholder: "linkedin.com/in/username" },
   { key: "github", label: "GitHub", placeholder: "github.com/username" },
+  { key: "currentRole", label: "Current Role", placeholder: "Software Engineer" },
 ];
 
 export function PersonalInfoStep({

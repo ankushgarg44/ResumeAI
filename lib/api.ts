@@ -27,8 +27,9 @@ export async function generateResumeContent(
           email: "user@example.com",
           phone: "+1 (555) 000-0000",
           address: "San Francisco, CA",
-          linkedIn: "",
-          github: "",
+          linkedIn: "linkedin.com/in/johndoe",
+          github: "github.com/johndoe",
+          currentRole: "Software Engineer",
         },
       });
     }, 1500);
