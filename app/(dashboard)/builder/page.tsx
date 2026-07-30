@@ -25,10 +25,13 @@ function BuilderContent() {
   const router = useRouter();
   const resumeId = searchParams?.get("id");
   const templateParam = searchParams?.get("template");
+  const isProfileMode = searchParams?.get("isProfile") === "true";
+  const profileTypeParam = searchParams?.get("profileType") ?? "";
 
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
     resumeId ? null : (templateParam || "ats-professional")
   );
+  const [profileType, setProfileType] = useState(profileTypeParam);
 
   const builder = useResumeBuilder(selectedTemplateId);
 
@@ -50,21 +53,23 @@ function BuilderContent() {
   const handleGenerate = useCallback(async () => {
     try {
       const title = builder.resumeData.personalInfo.fullName 
-        ? `${builder.resumeData.personalInfo.fullName} Resume`
-        : "Untitled Resume";
+        ? `${builder.resumeData.personalInfo.fullName} ${isProfileMode ? "Profile" : "Resume"}`
+        : isProfileMode ? "Untitled Profile" : "Untitled Resume";
       
       const currentData = builder.resumeData;
       await builder.saveToDatabase(
         title,
         selectedTemplateId || "ats-professional",
-        currentData
+        currentData,
+        isProfileMode,
+        profileType || null
       );
     } catch (error) {
       console.error("Failed to save resume:", error);
       // We still proceed to generating so the user can download their PDF even if DB save fails
     }
     setPhase("generating");
-  }, [builder, selectedTemplateId]);
+  }, [builder, selectedTemplateId, isProfileMode, profileType]);
 
   const handleGenerateComplete = useCallback(async () => {
     await generatePDF();
@@ -125,6 +130,9 @@ function BuilderContent() {
         onChange={builder.updateResumeData}
         visibleFields={key === "personal-info" ? templateConfig.personalInfoFields : undefined}
         requiredFields={key === "personal-info" ? templateConfig.requiredPersonalInfoFields : undefined}
+        isProfile={key === "personal-info" ? isProfileMode : undefined}
+        profileType={key === "personal-info" ? profileType : undefined}
+        onProfileTypeChange={key === "personal-info" ? setProfileType : undefined}
       />
     );
   };

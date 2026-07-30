@@ -30,9 +30,20 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { templateId = "ats-professional", title = "Untitled Resume" } = body;
+    const {
+      title = "Untitled Resume",
+      template_id = "ats-professional",
+      is_profile = false,
+      profile_type = null,
+    } = body;
 
-    const resume = await createResume(userId, templateId, title);
+    const resume = await createResume(
+      userId,
+      template_id,
+      title,
+      is_profile,
+      profile_type
+    );
     return NextResponse.json(resume, { status: 201 });
   } catch (error) {
     console.error("[POST /api/resumes]", error);

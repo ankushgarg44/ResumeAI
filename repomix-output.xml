@@ -50,11 +50,15 @@ app/
         page.tsx
     layout.tsx
   (dashboard)/
+    assemble/
+      page.tsx
     ats-score/
       page.tsx
     builder/
       page.tsx
     dashboard/
+      page.tsx
+    profiles/
       page.tsx
     resumes/
       page.tsx
@@ -64,6 +68,10 @@ app/
       page.tsx
     layout.tsx
   api/
+    assemble/
+      route.ts
+    profiles/
+      route.ts
     resumes/
       [id]/
         route.ts
@@ -85,6 +93,7 @@ components/
     personal-info-step.tsx
     projects-step.tsx
     publications-step.tsx
+    references-step.tsx
     success-screen.tsx
     technical-skills-step.tsx
     template-selection-step.tsx
@@ -164,323 +173,786 @@ tsconfig.json
 <files>
 This section contains the contents of the repository's files.
 
-<file path="components/forms/objective-step.tsx">
+<file path="app/(dashboard)/assemble/page.tsx">
 "use client";
 
-import { Label } from "@/components/ui/label";
+import { useState, useEffect, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import type { ResumeData } from "@/types";
+import { Label } from "@/components/ui/label";
+import {
+  ChevronRight,
+  ChevronLeft,
+  Sparkles,
+  Check,
+  Loader2,
+  FileEdit,
+  RotateCcw,
+  UserCircle2,
+  ChevronDown,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { TEMPLATE_CONFIGS, getTemplateIds } from "@/lib/template-configs";
+import type { Resume } from "@/types";
 
-interface ObjectiveStepProps {
-  data: ResumeData;
-  onChange: (updater: (prev: ResumeData) => ResumeData) => void;
+const loadingMessages = [
+  "Reading your profiles...",
+  "Analyzing the job description...",
+  "Finding the best experience matches...",
+  "Selecting most relevant projects...",
+  "Ordering skills to match the role...",
+  "Assembling your resume...",
+];
+
+interface AssembleResult {
+  resumeId: string;
+  assembledResume: any;
+  reasoning: {
+    summary: string;
+    experience: string;
+    projects: string;
+    skills: string;
+    omitted: string;
+  };
+  templateId: string;
 }
 
-export function ObjectiveStep({ data, onChange }: ObjectiveStepProps) {
-  const update = (value: string) => {
-    onChange((prev) => ({
-      ...prev,
-      objective: value,
-    }));
+export default function AssemblePage() {
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+
+  // Step 1 state
+  const [profiles, setProfiles] = useState<Resume[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [loadingProfiles, setLoadingProfiles] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  // Step 2 state
+  const [jobDescription, setJobDescription] = useState("");
+  const [templateId, setTemplateId] = useState("ats-professional");
+  const [isAssembling, setIsAssembling] = useState(false);
+  const [assembleError, setAssembleError] = useState<string | null>(null);
+  const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
+
+  // Step 3 state
+  const [result, setResult] = useState<AssembleResult | null>(null);
+  const [openReasoningSections, setOpenReasoningSections] = useState<Set<string>>(
+    new Set(["summary"])
+  );
+
+  // Fetch profiles on mount
+  useEffect(() => {
+    async function fetchProfiles() {
+      try {
+        const res = await fetch("/api/profiles");
+        if (!res.ok) throw new Error("Failed to fetch profiles");
+        const data = await res.json();
+        setProfiles(data);
+      } catch (err) {
+        setProfileError("Failed to load profiles. Please try again.");
+      } finally {
+        setLoadingProfiles(false);
+      }
+    }
+    fetchProfiles();
+  }, []);
+
+  // Cycle loading messages during assembly
+  useEffect(() => {
+    if (!isAssembling) return;
+    const interval = setInterval(() => {
+      setLoadingMsgIndex((prev) => (prev + 1) % loadingMessages.length);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [isAssembling]);
+
+  const toggleProfile = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleAssemble = useCallback(async () => {
+    setIsAssembling(true);
+    setAssembleError(null);
+    setLoadingMsgIndex(0);
+    try {
+      const res = await fetch("/api/assemble", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profileIds: Array.from(selectedIds),
+          jobDescription,
+          templateId,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Assembly failed");
+      }
+      const data: AssembleResult = await res.json();
+      setResult(data);
+      setStep(3);
+    } catch (err: any) {
+      setAssembleError(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setIsAssembling(false);
+    }
+  }, [selectedIds, jobDescription, templateId]);
+
+  const toggleReasoning = (key: string) => {
+    setOpenReasoningSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   };
 
+  const resetWizard = () => {
+    setStep(1);
+    setSelectedIds(new Set());
+    setJobDescription("");
+    setResult(null);
+    setAssembleError(null);
+  };
+
+  // ─── STEP 1: Select Profiles ─────────────────
+  if (step === 1) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6 pb-10">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Smart Assemble</h2>
+          <p className="text-muted-foreground mt-1">
+            Select the profiles you want to use, then paste a job description. AI will
+            assemble the perfect resume.
+          </p>
+        </div>
+
+        {/* Progress */}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+            1
+          </span>
+          <span className="text-foreground font-medium">Select Profiles</span>
+          <ChevronRight className="w-4 h-4" />
+          <span className="w-7 h-7 rounded-full border-2 border-muted flex items-center justify-center text-xs font-bold">
+            2
+          </span>
+          <span>Job Description</span>
+          <ChevronRight className="w-4 h-4" />
+          <span className="w-7 h-7 rounded-full border-2 border-muted flex items-center justify-center text-xs font-bold">
+            3
+          </span>
+          <span>Result</span>
+        </div>
+
+        {loadingProfiles ? (
+          <div className="flex items-center justify-center h-40">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : profileError ? (
+          <div className="text-center py-10 text-red-500">{profileError}</div>
+        ) : profiles.length === 0 ? (
+          <Card className="p-10 text-center space-y-4">
+            <UserCircle2 className="w-12 h-12 mx-auto text-muted-foreground" />
+            <h3 className="font-semibold text-lg">No profiles found</h3>
+            <p className="text-muted-foreground text-sm max-w-md mx-auto">
+              You need at least one profile resume to use Smart Assembly. Create
+              your first profile to get started.
+            </p>
+            <Link href="/builder?new=1&isProfile=true">
+              <Button className="bg-primary text-primary-foreground">
+                Create Profile
+              </Button>
+            </Link>
+          </Card>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {profiles.map((profile) => {
+                const isSelected = selectedIds.has(profile.id);
+                return (
+                  <Card
+                    key={profile.id}
+                    onClick={() => toggleProfile(profile.id)}
+                    className={cn(
+                      "cursor-pointer transition-all duration-200 p-4 border-2 flex flex-col gap-3",
+                      isSelected
+                        ? "border-primary shadow-lg shadow-primary/10 ring-2 ring-primary/20"
+                        : "border-border hover:border-primary/40"
+                    )}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-foreground truncate">
+                          {profile.title}
+                        </h4>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Updated{" "}
+                          {new Date(profile.updated_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div
+                        className={cn(
+                          "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors shrink-0 ml-2",
+                          isSelected
+                            ? "bg-primary border-primary"
+                            : "border-muted-foreground/30"
+                        )}
+                      >
+                        {isSelected && (
+                          <Check className="w-3 h-3 text-primary-foreground" />
+                        )}
+                      </div>
+                    </div>
+                    {profile.profile_type && (
+                      <Badge className="w-fit bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800 text-xs">
+                        {profile.profile_type}
+                      </Badge>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                onClick={() => setStep(2)}
+                disabled={selectedIds.size === 0}
+                className="bg-primary text-primary-foreground"
+              >
+                Next: Add Job Description
+                <ChevronRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // ─── STEP 2: Job Description ─────────────────
+  if (step === 2) {
+    const selectedProfiles = profiles.filter((p) => selectedIds.has(p.id));
+    const templateIds = getTemplateIds();
+
+    return (
+      <div className="max-w-3xl mx-auto space-y-6 pb-10 relative">
+        {/* Loading overlay */}
+        {isAssembling && (
+          <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center">
+            <div className="text-center space-y-6 max-w-sm">
+              <div className="relative mx-auto w-16 h-16">
+                <div className="absolute inset-0 rounded-full border-4 border-primary/20 animate-ping" />
+                <div className="relative flex items-center justify-center w-16 h-16 rounded-full bg-primary/10">
+                  <Sparkles className="w-8 h-8 text-primary animate-pulse" />
+                </div>
+              </div>
+              <p className="text-lg font-medium text-foreground animate-in fade-in duration-500" key={loadingMsgIndex}>
+                {loadingMessages[loadingMsgIndex]}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                This usually takes 10–20 seconds.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">
+            Paste Job Description
+          </h2>
+          <p className="text-muted-foreground mt-1">
+            The AI will analyze this and pick the best content from your selected
+            profiles.
+          </p>
+        </div>
+
+        {/* Progress */}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+            ✓
+          </span>
+          <span>Select Profiles</span>
+          <ChevronRight className="w-4 h-4" />
+          <span className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+            2
+          </span>
+          <span className="text-foreground font-medium">Job Description</span>
+          <ChevronRight className="w-4 h-4" />
+          <span className="w-7 h-7 rounded-full border-2 border-muted flex items-center justify-center text-xs font-bold">
+            3
+          </span>
+          <span>Result</span>
+        </div>
+
+        {/* Selected profiles badges */}
+        <div className="flex flex-wrap gap-2">
+          {selectedProfiles.map((p) => (
+            <Badge
+              key={p.id}
+              variant="secondary"
+              className="text-xs"
+            >
+              {p.title}
+              {p.profile_type && ` (${p.profile_type})`}
+            </Badge>
+          ))}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="jobDescription">Job Description</Label>
+          <Textarea
+            id="jobDescription"
+            className="min-h-[250px] font-mono text-sm"
+            placeholder="Paste the full job description here..."
+            value={jobDescription}
+            onChange={(e) => setJobDescription(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground text-right">
+            {jobDescription.length} characters
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="outputTemplate">Output Template</Label>
+          <select
+            id="outputTemplate"
+            value={templateId}
+            onChange={(e) => setTemplateId(e.target.value)}
+            className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {templateIds.map((id) => (
+              <option key={id} value={id}>
+                {TEMPLATE_CONFIGS[id].name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {assembleError && (
+          <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm">
+            {assembleError}
+          </div>
+        )}
+
+        <div className="flex justify-between">
+          <Button
+            variant="outline"
+            onClick={() => setStep(1)}
+            className="bg-background"
+          >
+            <ChevronLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <Button
+            onClick={handleAssemble}
+            disabled={!jobDescription.trim() || isAssembling}
+            className="bg-primary text-primary-foreground"
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            Assemble My Resume
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── STEP 3: Result ──────────────────────────
+  if (step === 3 && result) {
+    const reasoningSections = [
+      { key: "summary", title: "Summary Strategy", content: result.reasoning.summary },
+      { key: "experience", title: "Experience Picks", content: result.reasoning.experience },
+      { key: "projects", title: "Project Picks", content: result.reasoning.projects },
+      { key: "omitted", title: "What Was Omitted", content: result.reasoning.omitted },
+    ];
+
+    return (
+      <div className="max-w-3xl mx-auto space-y-6 pb-10">
+        {/* Progress */}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+            ✓
+          </span>
+          <span>Select Profiles</span>
+          <ChevronRight className="w-4 h-4" />
+          <span className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+            ✓
+          </span>
+          <span>Job Description</span>
+          <ChevronRight className="w-4 h-4" />
+          <span className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+            3
+          </span>
+          <span className="text-foreground font-medium">Result</span>
+        </div>
+
+        {/* Success banner */}
+        <div className="p-6 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg text-center space-y-2">
+          <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
+            <Check className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-emerald-800 dark:text-emerald-300">
+            Your resume has been assembled!
+          </h3>
+          <p className="text-sm text-emerald-600 dark:text-emerald-400">
+            The AI selected the most relevant content from your profiles for this job.
+          </p>
+        </div>
+
+        {/* Reasoning accordion */}
+        <div className="space-y-2">
+          <h4 className="font-semibold text-foreground text-sm uppercase tracking-wider text-muted-foreground">
+            Why this was chosen
+          </h4>
+          {reasoningSections.map((section) => (
+            <div
+              key={section.key}
+              className="border border-border rounded-lg overflow-hidden"
+            >
+              <button
+                onClick={() => toggleReasoning(section.key)}
+                className="w-full flex items-center justify-between p-4 text-left hover:bg-muted/50 transition-colors"
+              >
+                <span className="font-medium text-sm text-foreground">
+                  {section.title}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "w-4 h-4 text-muted-foreground transition-transform",
+                    openReasoningSections.has(section.key) && "rotate-180"
+                  )}
+                />
+              </button>
+              {openReasoningSections.has(section.key) && (
+                <div className="px-4 pb-4 text-sm text-muted-foreground border-t border-border pt-3">
+                  {section.content}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Link href={`/builder?id=${result.resumeId}`} className="flex-1">
+            <Button className="w-full bg-primary text-primary-foreground">
+              <FileEdit className="w-4 h-4 mr-2" />
+              Edit & Download
+            </Button>
+          </Link>
+          <Button
+            variant="outline"
+            onClick={resetWizard}
+            className="flex-1 bg-background"
+          >
+            <RotateCcw className="w-4 h-4 mr-2" />
+            Assemble Another
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+</file>
+
+<file path="app/(dashboard)/profiles/page.tsx">
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { UserCircle2, Clock } from "lucide-react";
+import Link from "next/link";
+import { currentUser } from "@clerk/nextjs/server";
+import { getUserProfiles } from "@/lib/supabase/resumes";
+import { DeleteResumeButton } from "@/components/resumes/delete-button";
+
+export default async function ProfilesPage() {
+  const user = await currentUser();
+  const userId = user?.id;
+
+  if (!userId) {
+    return <div>Not signed in</div>;
+  }
+
+  const profiles = await getUserProfiles(userId);
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
-      <div>
-        <h3 className="text-2xl font-bold mb-1">Professional Objective</h3>
-        <p className="text-muted-foreground">
-          Write a short summary or objective to highlight your career goals and overall profile.
-        </p>
+    <div className="space-y-6 max-w-6xl mx-auto pb-10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">My Profiles</h2>
+          <p className="text-muted-foreground mt-1">
+            Your master resume vaults. Build one profile per domain you work in.
+          </p>
+        </div>
+        <Link href="/builder?new=1&isProfile=true">
+          <Button className="bg-primary text-primary-foreground shadow-sm">
+            Create New Profile
+          </Button>
+        </Link>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="objective">Objective / Summary</Label>
-        <Textarea
-          id="objective"
-          className="min-h-[150px]"
-          placeholder="E.g. As an assistant manager, my primary objective is to support the functioning of business operations..."
-          value={data.objective}
-          onChange={(e) => update(e.target.value)}
+      {profiles.length === 0 ? (
+        <EmptyState
+          title="No profiles yet"
+          description="No profiles yet. Create your first profile resume to get started with Smart Assembly."
+          icon={<UserCircle2 className="w-8 h-8" />}
+          action={
+            <Link href="/builder?new=1&isProfile=true">
+              <Button className="bg-primary text-primary-foreground shadow-sm">
+                Create Profile
+              </Button>
+            </Link>
+          }
         />
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {profiles.map((profile) => (
+            <Card
+              key={profile.id}
+              className="flex flex-col border-border shadow-sm hover:border-primary/50 transition-colors overflow-hidden group"
+            >
+              <div className="h-32 bg-muted relative border-b border-border p-4 flex flex-col justify-end">
+                <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-amber-500 via-transparent to-transparent"></div>
+                <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] bg-center opacity-5"></div>
+                <div className="relative z-10 flex items-center justify-between">
+                  {profile.profile_type && (
+                    <Badge className="bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800">
+                      {profile.profile_type}
+                    </Badge>
+                  )}
+                  <span className="px-2 py-1 bg-background/80 backdrop-blur-sm text-xs font-medium rounded text-muted-foreground border border-border shadow-sm">
+                    {profile.template_id}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-5 flex-1 flex flex-col">
+                <h4 className="font-semibold text-foreground text-lg mb-1 line-clamp-1 group-hover:text-primary transition-colors">
+                  {profile.title}
+                </h4>
+                <div className="flex items-center text-xs text-muted-foreground mb-4">
+                  <Clock className="w-3 h-3 mr-1" />
+                  Updated {new Date(profile.updated_at).toLocaleDateString()}
+                </div>
+
+                <div className="mt-auto pt-4 border-t border-border flex items-center gap-2">
+                  <Link
+                    href={`/builder?id=${profile.id}&isProfile=true`}
+                    className="flex-1"
+                  >
+                    <Button
+                      variant="outline"
+                      className="w-full bg-background hover:bg-muted text-sm shadow-sm h-9"
+                    >
+                      Edit
+                    </Button>
+                  </Link>
+                  <DeleteResumeButton id={profile.id} />
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 </file>
 
-<file path="components/resume-templates/classic-professional-template.tsx">
-import { forwardRef } from "react";
-import type { ResumeData } from "@/types";
+<file path="app/api/assemble/route.ts">
+import { auth } from "@clerk/nextjs/server";
+import { serverSupabase } from "@/lib/supabase/server";
+import { createResume, saveResume } from "@/lib/supabase/resumes";
 
-function formatDate(dateStr: string): string {
-  if (!dateStr) return "";
-  const [year, month] = dateStr.split("-");
-  if (!year || !month) return dateStr;
-  const months = [
-    "Jan.", "Feb.", "Mar.", "Apr.", "May", "June",
-    "July", "Aug.", "Sep.", "Oct.", "Nov.", "Dec."
-  ];
-  return `${months[parseInt(month, 10) - 1]} ${year}`;
-}
+export async function POST(req: Request) {
+  const { userId } = await auth();
+  if (!userId) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-export const ClassicProfessionalTemplate = forwardRef<HTMLDivElement, { data: ResumeData }>(
-  function ClassicProfessionalTemplate({ data }, ref) {
-    const { personalInfo, objective, education, technicalSkills, experience } = data;
+  const { profileIds, jobDescription, templateId } = await req.json();
 
-    const contactParts = [];
-    if (personalInfo?.phone) contactParts.push(personalInfo.phone);
-    if (personalInfo?.email) contactParts.push(personalInfo.email);
-    if (personalInfo?.address) contactParts.push(personalInfo.address);
-    if (personalInfo?.linkedIn) contactParts.push(personalInfo.linkedIn);
-
-    return (
-      <div
-        ref={ref}
-        style={{
-          width: "210mm",
-          minHeight: "297mm",
-          boxSizing: "border-box",
-          background: "#fff",
-          padding: "40mm 20mm",
-          fontFamily: "Georgia, serif",
-          color: "#333",
-          lineHeight: 1.6,
-          fontSize: "11px",
-        }}
-      >
-        {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: "20px" }}>
-          <h1
-            style={{
-              fontSize: "32px",
-              fontWeight: "normal",
-              margin: "0 0 5px 0",
-              color: "#000",
-              textTransform: "uppercase",
-              letterSpacing: "2px",
-            }}
-          >
-            {personalInfo?.fullName || "Your Name"}
-          </h1>
-          {personalInfo?.currentRole && (
-            <div style={{ fontSize: "14px", color: "#555", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px" }}>
-              {personalInfo.currentRole}
-            </div>
-          )}
-          {contactParts.length > 0 && (
-            <div style={{ fontSize: "10px", color: "#666" }}>
-              {contactParts.join(" • ")}
-            </div>
-          )}
-        </div>
-
-        {/* Objective */}
-        {objective && (
-          <div style={{ marginBottom: "20px" }}>
-            <h2
-              style={{
-                fontSize: "13px",
-                fontWeight: "bold",
-                textTransform: "uppercase",
-                borderBottom: "1px solid #000",
-                paddingBottom: "4px",
-                marginBottom: "8px",
-                letterSpacing: "1px",
-                color: "#000"
-              }}
-            >
-              Objective
-            </h2>
-            <div style={{ textAlign: "justify" }}>{objective}</div>
-          </div>
-        )}
-
-        {/* Education */}
-        {education && education.length > 0 && (
-          <div style={{ marginBottom: "20px" }}>
-            <h2
-              style={{
-                fontSize: "13px",
-                fontWeight: "bold",
-                textTransform: "uppercase",
-                borderBottom: "1px solid #000",
-                paddingBottom: "4px",
-                marginBottom: "12px",
-                letterSpacing: "1px",
-                color: "#000"
-              }}
-            >
-              Education
-            </h2>
-            {education.map((edu) => (
-              <div key={edu.id} style={{ marginBottom: "12px", display: "flex", justifyContent: "space-between" }}>
-                <div style={{ width: "70%" }}>
-                  <div style={{ fontWeight: "bold", color: "#000", fontSize: "12px" }}>
-                    {edu.university}
-                  </div>
-                  <div style={{ fontStyle: "italic", color: "#444" }}>
-                    {edu.degree}
-                  </div>
-                  {edu.cgpa && (
-                    <div style={{ color: "#666", marginTop: "2px" }}>
-                      GPA: {edu.cgpa}
-                    </div>
-                  )}
-                </div>
-                <div style={{ width: "28%", textAlign: "right", color: "#666" }}>
-                  {edu.location && <div>{edu.location}</div>}
-                  {edu.endDate && <div>{formatDate(edu.endDate)}</div>}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Key Skills */}
-        {technicalSkills &&
-          (technicalSkills.languages?.length > 0 ||
-            technicalSkills.frameworks?.length > 0 ||
-            technicalSkills.developerTools?.length > 0) && (
-            <div style={{ marginBottom: "20px" }}>
-              <h2
-                style={{
-                  fontSize: "13px",
-                  fontWeight: "bold",
-                  textTransform: "uppercase",
-                  borderBottom: "1px solid #000",
-                  paddingBottom: "4px",
-                  marginBottom: "8px",
-                  letterSpacing: "1px",
-                  color: "#000"
-                }}
-              >
-                Key Skills
-              </h2>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                {technicalSkills.languages && technicalSkills.languages.length > 0 && (
-                  <div style={{ flex: "1 1 30%" }}>
-                    <strong style={{ color: "#000" }}>Languages:</strong> {technicalSkills.languages.join(", ")}
-                  </div>
-                )}
-                {technicalSkills.frameworks && technicalSkills.frameworks.length > 0 && (
-                  <div style={{ flex: "1 1 30%" }}>
-                    <strong style={{ color: "#000" }}>Frameworks:</strong> {technicalSkills.frameworks.join(", ")}
-                  </div>
-                )}
-                {technicalSkills.developerTools && technicalSkills.developerTools.length > 0 && (
-                  <div style={{ flex: "1 1 30%" }}>
-                    <strong style={{ color: "#000" }}>Tools:</strong> {technicalSkills.developerTools.join(", ")}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-        {/* Experience */}
-        {experience && experience.length > 0 && (
-          <div style={{ marginBottom: "20px" }}>
-            <h2
-              style={{
-                fontSize: "13px",
-                fontWeight: "bold",
-                textTransform: "uppercase",
-                borderBottom: "1px solid #000",
-                paddingBottom: "4px",
-                marginBottom: "12px",
-                letterSpacing: "1px",
-                color: "#000"
-              }}
-            >
-              Experience
-            </h2>
-            {experience.map((exp) => (
-              <div key={exp.id} style={{ marginBottom: "16px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                  <div style={{ width: "70%" }}>
-                    <span style={{ fontWeight: "bold", fontSize: "12px", color: "#000" }}>
-                      {exp.role}
-                    </span>
-                    {exp.company && (
-                      <span style={{ fontStyle: "italic", marginLeft: "6px", color: "#444" }}>
-                        {exp.company}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ width: "28%", textAlign: "right", color: "#666" }}>
-                    {formatDate(exp.startDate)} – {exp.endDate ? formatDate(exp.endDate) : "Present"}
-                  </div>
-                </div>
-                {exp.bullets && exp.bullets.length > 0 && (
-                  <ul style={{ margin: "4px 0 0 0", paddingLeft: "20px", color: "#333", textAlign: "justify" }}>
-                    {exp.bullets.map((bullet, i) => (
-                      <li key={i} style={{ marginBottom: "3px" }}>
-                        {bullet}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+  if (!profileIds?.length || !jobDescription) {
+    return Response.json(
+      { error: "Missing profileIds or jobDescription" },
+      { status: 400 }
     );
   }
-);
-</file>
 
-<file path="lib/section-registry.ts">
-import { PersonalInfoStep } from "@/components/forms/personal-info-step";
-import { ObjectiveStep } from "@/components/forms/objective-step";
-import { EducationStep } from "@/components/forms/education-step";
-import { CourseworkStep } from "@/components/forms/coursework-step";
-import { ExperienceStep } from "@/components/forms/experience-step";
-import { ProjectsStep } from "@/components/forms/projects-step";
-import { TechnicalSkillsStep } from "@/components/forms/technical-skills-step";
-import { LeadershipStep } from "@/components/forms/leadership-step";
-import { TrainingStep } from "@/components/forms/training-step";
-import { PublicationsStep } from "@/components/forms/publications-step";
-import type { FormSectionKey } from "@/lib/template-configs";
-import type { ResumeData } from "@/types";
+  // Fetch selected profiles
+  const { data: profiles, error } = await serverSupabase
+    .from("resumes")
+    .select("*")
+    .in("id", profileIds)
+    .eq("user_id", userId)
+    .eq("is_profile", true);
 
-export interface SectionProps {
-  data: ResumeData;
-  onChange: (updater: (prev: ResumeData) => ResumeData) => void;
-  // PersonalInfoStep accepts these optionally
-  visibleFields?: string[];
-  requiredFields?: string[];
+  if (error || !profiles?.length) {
+    return Response.json({ error: "Profiles not found" }, { status: 400 });
+  }
+
+  const systemPrompt = `You are an expert resume writer and technical recruiter with 15 years of experience. You will receive multiple profile resumes representing different domains of a candidate's experience, and a job description.
+
+Your task is to assemble the single best resume for this specific job by:
+- Selecting only the most relevant experience bullets from any profile (max 3 jobs, 3 bullets each)
+- Picking the 2-3 most relevant projects
+- Reordering skills to match the JD tech stack priority exactly
+- Writing a 2-sentence tailored summary using the JD's language, tone and key verbs
+- Only including sections that are relevant to this role
+- Keeping the resume to one page worth of content
+
+Return ONLY a valid JSON object with this exact structure, no markdown, no explanation outside the JSON:
+{
+  "assembledResume": {
+    "personalInfo": {
+      "fullName": "",
+      "address": "",
+      "phone": "",
+      "email": "",
+      "linkedIn": "",
+      "github": "",
+      "currentRole": ""
+    },
+    "objective": "",
+    "education": [],
+    "coursework": [],
+    "experience": [],
+    "projects": [],
+    "technicalSkills": {
+      "languages": [],
+      "developerTools": [],
+      "frameworks": []
+    },
+    "leadership": [],
+    "training": [],
+    "publications": [],
+    "references": ""
+  },
+  "reasoning": {
+    "summary": "explanation of overall assembly strategy for this role",
+    "experience": "which experience items were chosen and why",
+    "projects": "which projects were chosen and why",
+    "skills": "how skills were ordered and why",
+    "omitted": "what was left out and why"
+  }
+}`;
+
+  const userMessage = `
+JOB DESCRIPTION:
+${jobDescription}
+
+CANDIDATE PROFILES (${profiles.length} total):
+${profiles
+  .map(
+    (p: any, i: number) => `
+=== Profile ${i + 1}: ${p.profile_type ?? "General"} (${p.title}) ===
+${JSON.stringify(p.resume_data, null, 2)}
+`
+  )
+  .join("\n")}
+
+Assemble the best resume for this job. Return JSON only.`;
+
+  // Call Groq API
+  const groqRes = await fetch(
+    "https://api.groq.com/openai/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.GROQ_API_KEY!}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        response_format: { type: "json_object" },
+        temperature: 0.3,
+        max_tokens: 4000,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userMessage },
+        ],
+      }),
+    }
+  );
+
+  if (!groqRes.ok) {
+    const errText = await groqRes.text();
+    console.error("[Groq Error]", errText);
+    return Response.json({ error: "AI service failed" }, { status: 500 });
+  }
+
+  const groqData = await groqRes.json();
+  const text = groqData.choices?.[0]?.message?.content ?? "";
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    console.error("[Parse Error] Groq returned:", text);
+    return Response.json(
+      { error: "AI returned invalid response" },
+      { status: 500 }
+    );
+  }
+
+  if (!parsed.assembledResume || !parsed.reasoning) {
+    return Response.json(
+      { error: "AI response missing required fields" },
+      { status: 500 }
+    );
+  }
+
+  // Save assembled resume to DB
+  const created = await createResume(
+    userId,
+    templateId ?? "ats-professional",
+    "Assembled Resume",
+    false,
+    null
+  );
+
+  await saveResume(created.id, userId, {
+    resume_data: parsed.assembledResume,
+    assembled_from: profileIds,
+    job_description: jobDescription,
+    status: "draft",
+  } as any);
+
+  return Response.json({
+    resumeId: created.id,
+    assembledResume: parsed.assembledResume,
+    reasoning: parsed.reasoning,
+    templateId: templateId ?? "ats-professional",
+  });
 }
-
-export const SECTION_REGISTRY: Record<FormSectionKey, React.ComponentType<SectionProps>> = {
-  "personal-info": PersonalInfoStep as any,
-  "objective": ObjectiveStep as any,
-  "education": EducationStep as any,
-  "coursework": CourseworkStep as any,
-  "experience": ExperienceStep as any,
-  "projects": ProjectsStep as any,
-  "technical-skills": TechnicalSkillsStep as any,
-  "leadership": LeadershipStep as any,
-  "training": TrainingStep as any,
-  "publications": PublicationsStep as any,
-};
 </file>
 
-<file path="lib/template-registry.ts">
-import { ATSTemplate } from "@/components/resume-templates/ats-template";
-import { ModernTwoColumnTemplate } from "@/components/resume-templates/modern-two-column-template";
-import { ClassicProfessionalTemplate } from "@/components/resume-templates/classic-professional-template";
+<file path="app/api/profiles/route.ts">
+import { auth } from "@clerk/nextjs/server";
+import { getUserProfiles } from "@/lib/supabase/resumes";
 
-export const TEMPLATE_REGISTRY: Record<string, { component: React.ComponentType<any> }> = {
-  "ats-professional": {
-    component: ATSTemplate,
-  },
-  "modern-two-column": {
-    component: ModernTwoColumnTemplate,
-  },
-  "classic-professional": {
-    component: ClassicProfessionalTemplate,
-  },
-};
+export async function GET() {
+  const { userId } = await auth();
+  if (!userId) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  try {
+    const profiles = await getUserProfiles(userId);
+    return Response.json(profiles);
+  } catch {
+    return Response.json({ error: "Failed to fetch profiles" }, { status: 500 });
+  }
+}
 </file>
 
 <file path="app/(auth)/sign-in/[[...sign-in]]/page.tsx">
@@ -532,9 +1004,20 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { templateId = "ats-professional", title = "Untitled Resume" } = body;
+    const {
+      title = "Untitled Resume",
+      template_id = "ats-professional",
+      is_profile = false,
+      profile_type = null,
+    } = body;
 
-    const resume = await createResume(userId, templateId, title);
+    const resume = await createResume(
+      userId,
+      template_id,
+      title,
+      is_profile,
+      profile_type
+    );
     return NextResponse.json(resume, { status: 201 });
   } catch (error) {
     console.error("[POST /api/resumes]", error);
@@ -1245,6 +1728,50 @@ export function LeadershipStep({ data, onChange }: LeadershipStepProps) {
 }
 </file>
 
+<file path="components/forms/objective-step.tsx">
+"use client";
+
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import type { ResumeData } from "@/types";
+
+interface ObjectiveStepProps {
+  data: ResumeData;
+  onChange: (updater: (prev: ResumeData) => ResumeData) => void;
+}
+
+export function ObjectiveStep({ data, onChange }: ObjectiveStepProps) {
+  const update = (value: string) => {
+    onChange((prev) => ({
+      ...prev,
+      objective: value,
+    }));
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      <div>
+        <h3 className="text-2xl font-bold mb-1">Professional Objective</h3>
+        <p className="text-muted-foreground">
+          Write a short summary or objective to highlight your career goals and overall profile.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="objective">Objective / Summary</Label>
+        <Textarea
+          id="objective"
+          className="min-h-[150px]"
+          placeholder="E.g. As an assistant manager, my primary objective is to support the functioning of business operations..."
+          value={data.objective}
+          onChange={(e) => update(e.target.value)}
+        />
+      </div>
+    </div>
+  );
+}
+</file>
+
 <file path="components/forms/projects-step.tsx">
 "use client";
 
@@ -1600,6 +2127,50 @@ export function PublicationsStep({ data, onChange }: PublicationsStepProps) {
           </div>
         </Card>
       ))}
+    </div>
+  );
+}
+</file>
+
+<file path="components/forms/references-step.tsx">
+"use client";
+
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import type { ResumeData } from "@/types";
+
+interface ReferencesStepProps {
+  data: ResumeData;
+  onChange: (updater: (prev: ResumeData) => ResumeData) => void;
+}
+
+export function ReferencesStep({ data, onChange }: ReferencesStepProps) {
+  const update = (value: string) => {
+    onChange((prev) => ({
+      ...prev,
+      references: value,
+    }));
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      <div>
+        <h3 className="text-2xl font-bold mb-1">References</h3>
+        <p className="text-muted-foreground">
+          List your references or indicate that they are available upon request.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="references">References</Label>
+        <Textarea
+          id="references"
+          className="min-h-[100px]"
+          placeholder="Available upon request."
+          value={data.references}
+          onChange={(e) => update(e.target.value)}
+        />
+      </div>
     </div>
   );
 }
@@ -2387,6 +2958,292 @@ function BulletList({ items }: { items: string[] }) {
     </ul>
   );
 }
+</file>
+
+<file path="components/resume-templates/classic-professional-template.tsx">
+import { forwardRef } from "react";
+import type { ResumeData } from "@/types";
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return "";
+  const [year, month] = dateStr.split("-");
+  if (!year || !month) return dateStr;
+  const months = [
+    "Jan.", "Feb.", "Mar.", "Apr.", "May", "June",
+    "July", "Aug.", "Sep.", "Oct.", "Nov.", "Dec."
+  ];
+  return `${months[parseInt(month, 10) - 1]} ${year}`;
+}
+
+export const ClassicProfessionalTemplate = forwardRef<HTMLDivElement, { data: ResumeData }>(
+  function ClassicProfessionalTemplate({ data }, ref) {
+    const {
+      personalInfo,
+      objective,
+      education,
+      technicalSkills,
+      experience,
+      leadership,
+      references,
+    } = data;
+
+    const contactParts = [];
+    if (personalInfo?.phone) contactParts.push(personalInfo.phone);
+    if (personalInfo?.email) contactParts.push(personalInfo.email);
+    if (personalInfo?.address) contactParts.push(personalInfo.address);
+    if (personalInfo?.linkedIn) contactParts.push(personalInfo.linkedIn);
+
+    return (
+      <div
+        ref={ref}
+        style={{
+          width: "210mm",
+          minHeight: "297mm",
+          boxSizing: "border-box",
+          background: "#fff",
+          padding: "40mm 20mm",
+          fontFamily: "Georgia, serif",
+          color: "#333",
+          lineHeight: 1.6,
+          fontSize: "11px",
+        }}
+      >
+        {/* Header */}
+        <div style={{ textAlign: "center", marginBottom: "20px" }}>
+          <h1
+            style={{
+              fontSize: "32px",
+              fontWeight: "normal",
+              margin: "0 0 5px 0",
+              color: "#000",
+              textTransform: "uppercase",
+              letterSpacing: "2px",
+            }}
+          >
+            {personalInfo?.fullName || "Your Name"}
+          </h1>
+          {personalInfo?.currentRole && (
+            <div style={{ fontSize: "14px", color: "#555", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px" }}>
+              {personalInfo.currentRole}
+            </div>
+          )}
+          {contactParts.length > 0 && (
+            <div style={{ fontSize: "10px", color: "#666" }}>
+              {contactParts.join(" • ")}
+            </div>
+          )}
+        </div>
+
+        {/* Objective */}
+        {objective && (
+          <div style={{ marginBottom: "20px" }}>
+            <h2
+              style={{
+                fontSize: "13px",
+                fontWeight: "bold",
+                textTransform: "uppercase",
+                borderBottom: "1px solid #000",
+                paddingBottom: "4px",
+                marginBottom: "8px",
+                letterSpacing: "1px",
+                color: "#000"
+              }}
+            >
+              Objective
+            </h2>
+            <div style={{ textAlign: "justify" }}>{objective}</div>
+          </div>
+        )}
+
+        {/* Education */}
+        {education && education.length > 0 && (
+          <div style={{ marginBottom: "20px" }}>
+            <h2
+              style={{
+                fontSize: "13px",
+                fontWeight: "bold",
+                textTransform: "uppercase",
+                borderBottom: "1px solid #000",
+                paddingBottom: "4px",
+                marginBottom: "12px",
+                letterSpacing: "1px",
+                color: "#000"
+              }}
+            >
+              Education
+            </h2>
+            {education.map((edu) => (
+              <div key={edu.id} style={{ marginBottom: "12px", display: "flex", justifyContent: "space-between" }}>
+                <div style={{ width: "70%" }}>
+                  <div style={{ fontWeight: "bold", color: "#000", fontSize: "12px" }}>
+                    {edu.university}
+                  </div>
+                  <div style={{ fontStyle: "italic", color: "#444" }}>
+                    {edu.degree}
+                  </div>
+                  {edu.cgpa && (
+                    <div style={{ color: "#666", marginTop: "2px" }}>
+                      GPA: {edu.cgpa}
+                    </div>
+                  )}
+                </div>
+                <div style={{ width: "28%", textAlign: "right", color: "#666" }}>
+                  {edu.location && <div>{edu.location}</div>}
+                  {edu.endDate && <div>{formatDate(edu.endDate)}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Key Skills */}
+        {technicalSkills &&
+          (technicalSkills.languages?.length > 0 ||
+            technicalSkills.frameworks?.length > 0 ||
+            technicalSkills.developerTools?.length > 0) && (
+            <div style={{ marginBottom: "20px" }}>
+              <h2
+                style={{
+                  fontSize: "13px",
+                  fontWeight: "bold",
+                  textTransform: "uppercase",
+                  borderBottom: "1px solid #000",
+                  paddingBottom: "4px",
+                  marginBottom: "8px",
+                  letterSpacing: "1px",
+                  color: "#000"
+                }}
+              >
+                Key Skills
+              </h2>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+                {technicalSkills.languages && technicalSkills.languages.length > 0 && (
+                  <div style={{ flex: "1 1 30%" }}>
+                    <strong style={{ color: "#000" }}>Languages:</strong> {technicalSkills.languages.join(", ")}
+                  </div>
+                )}
+                {technicalSkills.frameworks && technicalSkills.frameworks.length > 0 && (
+                  <div style={{ flex: "1 1 30%" }}>
+                    <strong style={{ color: "#000" }}>Frameworks:</strong> {technicalSkills.frameworks.join(", ")}
+                  </div>
+                )}
+                {technicalSkills.developerTools && technicalSkills.developerTools.length > 0 && (
+                  <div style={{ flex: "1 1 30%" }}>
+                    <strong style={{ color: "#000" }}>Tools:</strong> {technicalSkills.developerTools.join(", ")}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+        {/* Experience */}
+        {experience && experience.length > 0 && (
+          <div style={{ marginBottom: "20px" }}>
+            <h2
+              style={{
+                fontSize: "13px",
+                fontWeight: "bold",
+                textTransform: "uppercase",
+                borderBottom: "1px solid #000",
+                paddingBottom: "4px",
+                marginBottom: "12px",
+                letterSpacing: "1px",
+                color: "#000"
+              }}
+            >
+              Experience
+            </h2>
+            {experience.map((exp) => (
+              <div key={exp.id} style={{ marginBottom: "16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                  <div style={{ width: "70%" }}>
+                    <span style={{ fontWeight: "bold", fontSize: "12px", color: "#000" }}>
+                      {exp.role}
+                    </span>
+                    {exp.company && (
+                      <span style={{ fontStyle: "italic", marginLeft: "6px", color: "#444" }}>
+                        {exp.company}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ width: "28%", textAlign: "right", color: "#666" }}>
+                    {formatDate(exp.startDate)} – {exp.endDate ? formatDate(exp.endDate) : "Present"}
+                  </div>
+                </div>
+                {exp.bullets && exp.bullets.length > 0 && (
+                  <ul style={{ margin: "4px 0 0 0", paddingLeft: "20px", color: "#333", textAlign: "justify" }}>
+                    {exp.bullets.map((bullet, i) => (
+                      <li key={i} style={{ marginBottom: "3px" }}>
+                        {bullet}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Leadership */}
+        {leadership && leadership.length > 0 && (
+          <div style={{ marginBottom: "20px" }}>
+            <h2
+              style={{
+                fontSize: "13px",
+                fontWeight: "bold",
+                textTransform: "uppercase",
+                borderBottom: "1px solid #000",
+                paddingBottom: "4px",
+                marginBottom: "12px",
+                letterSpacing: "1px",
+                color: "#000"
+              }}
+            >
+              Leadership
+            </h2>
+            {leadership.map((item) => (
+              <div key={item.id} style={{ marginBottom: "12px" }}>
+                <div style={{ fontWeight: "bold", color: "#000", fontSize: "12px", marginBottom: "4px" }}>
+                  {item.role} {item.organization && `| ${item.organization}`}
+                </div>
+                {item.bullets && item.bullets.length > 0 && (
+                  <ul style={{ margin: "4px 0 0 0", paddingLeft: "20px", color: "#333", textAlign: "justify" }}>
+                    {item.bullets.map((bullet, i) => (
+                      <li key={i} style={{ marginBottom: "3px" }}>
+                        {bullet}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* References */}
+        {references && references.trim().length > 0 && (
+          <div style={{ marginBottom: "20px" }}>
+            <h2
+              style={{
+                fontSize: "13px",
+                fontWeight: "bold",
+                textTransform: "uppercase",
+                borderBottom: "1px solid #000",
+                paddingBottom: "4px",
+                marginBottom: "8px",
+                letterSpacing: "1px",
+                color: "#000"
+              }}
+            >
+              References
+            </h2>
+            <div style={{ textAlign: "justify" }}>{references}</div>
+          </div>
+        )}
+      </div>
+    );
+  }
+);
 </file>
 
 <file path="components/resumes/delete-button.tsx">
@@ -3742,6 +4599,10 @@ export interface Database {
           resume_data: Json;
           ats_score: number | null;
           status: string;
+          is_profile: boolean;
+          profile_type: string | null;
+          assembled_from: string[] | null;
+          job_description: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -3753,6 +4614,10 @@ export interface Database {
           resume_data?: Json;
           ats_score?: number | null;
           status?: string;
+          is_profile?: boolean;
+          profile_type?: string | null;
+          assembled_from?: string[] | null;
+          job_description?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -3764,6 +4629,10 @@ export interface Database {
           resume_data?: Json;
           ats_score?: number | null;
           status?: string;
+          is_profile?: boolean;
+          profile_type?: string | null;
+          assembled_from?: string[] | null;
+          job_description?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -3805,6 +4674,65 @@ export const EMPTY_STATS = {
 
 export const EMPTY_RESUMES = [];
 export const EMPTY_TEMPLATES = [];
+</file>
+
+<file path="lib/section-registry.ts">
+import { PersonalInfoStep } from "@/components/forms/personal-info-step";
+import { ObjectiveStep } from "@/components/forms/objective-step";
+import { EducationStep } from "@/components/forms/education-step";
+import { CourseworkStep } from "@/components/forms/coursework-step";
+import { ExperienceStep } from "@/components/forms/experience-step";
+import { ProjectsStep } from "@/components/forms/projects-step";
+import { TechnicalSkillsStep } from "@/components/forms/technical-skills-step";
+import { LeadershipStep } from "@/components/forms/leadership-step";
+import { TrainingStep } from "@/components/forms/training-step";
+import { PublicationsStep } from "@/components/forms/publications-step";
+import { ReferencesStep } from "@/components/forms/references-step";
+import type { FormSectionKey } from "@/lib/template-configs";
+import type { ResumeData } from "@/types";
+
+export interface SectionProps {
+  data: ResumeData;
+  onChange: (updater: (prev: ResumeData) => ResumeData) => void;
+  // PersonalInfoStep accepts these optionally
+  visibleFields?: string[];
+  requiredFields?: string[];
+  isProfile?: boolean;
+  profileType?: string;
+  onProfileTypeChange?: (value: string) => void;
+}
+
+export const SECTION_REGISTRY: Record<FormSectionKey, React.ComponentType<SectionProps>> = {
+  "personal-info": PersonalInfoStep as any,
+  "objective": ObjectiveStep as any,
+  "education": EducationStep as any,
+  "coursework": CourseworkStep as any,
+  "experience": ExperienceStep as any,
+  "projects": ProjectsStep as any,
+  "technical-skills": TechnicalSkillsStep as any,
+  "leadership": LeadershipStep as any,
+  "training": TrainingStep as any,
+  "publications": PublicationsStep as any,
+  "references": ReferencesStep as any,
+};
+</file>
+
+<file path="lib/template-registry.ts">
+import { ATSTemplate } from "@/components/resume-templates/ats-template";
+import { ModernTwoColumnTemplate } from "@/components/resume-templates/modern-two-column-template";
+import { ClassicProfessionalTemplate } from "@/components/resume-templates/classic-professional-template";
+
+export const TEMPLATE_REGISTRY: Record<string, { component: React.ComponentType<any> }> = {
+  "ats-professional": {
+    component: ATSTemplate,
+  },
+  "modern-two-column": {
+    component: ModernTwoColumnTemplate,
+  },
+  "classic-professional": {
+    component: ClassicProfessionalTemplate,
+  },
+};
 </file>
 
 <file path="public/file.svg">
@@ -3917,7 +4845,9 @@ const isProtectedRoute = createRouteMatcher([
   "/resumes(.*)",
   "/templates(.*)",
   "/settings(.*)",
-  "/ats-score(.*)"
+  "/ats-score(.*)",
+  "/profiles(.*)",
+  "/assemble(.*)",
 ]);
 
 export const proxy = clerkMiddleware(async (auth, req) => {
@@ -4531,95 +5461,6 @@ export function AuthButtons() {
 }
 </file>
 
-<file path="components/forms/personal-info-step.tsx">
-"use client";
-
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import type { ResumeData, ResumePersonalInfo } from "@/types";
-
-interface PersonalInfoStepProps {
-  data: ResumeData;
-  onChange: (updater: (prev: ResumeData) => ResumeData) => void;
-  visibleFields?: (keyof ResumePersonalInfo)[];
-  requiredFields?: (keyof ResumePersonalInfo)[];
-}
-
-// Default: show all fields
-const ALL_FIELDS: (keyof ResumePersonalInfo)[] = [
-  "fullName",
-  "address",
-  "phone",
-  "email",
-  "linkedIn",
-  "github",
-  "currentRole",
-];
-
-interface FieldDef {
-  key: keyof ResumePersonalInfo;
-  label: string;
-  placeholder: string;
-  type?: string;
-}
-
-const FIELD_DEFS: FieldDef[] = [
-  { key: "fullName", label: "Full Name", placeholder: "John Doe" },
-  { key: "address", label: "Address", placeholder: "123 Street Name, Town, State 12345" },
-  { key: "phone", label: "Phone", placeholder: "123-456-7890", type: "tel" },
-  { key: "email", label: "Email", placeholder: "email@gmail.com", type: "email" },
-  { key: "linkedIn", label: "LinkedIn", placeholder: "linkedin.com/in/username" },
-  { key: "github", label: "GitHub", placeholder: "github.com/username" },
-  { key: "currentRole", label: "Current Role", placeholder: "Software Engineer" },
-];
-
-export function PersonalInfoStep({
-  data,
-  onChange,
-  visibleFields,
-  requiredFields,
-}: PersonalInfoStepProps) {
-  const fieldsToShow = visibleFields ?? ALL_FIELDS;
-  const required = new Set(requiredFields ?? []);
-
-  const update = (field: keyof ResumePersonalInfo, value: string) => {
-    onChange((prev) => ({
-      ...prev,
-      personalInfo: { ...prev.personalInfo, [field]: value },
-    }));
-  };
-
-  return (
-    <div className="space-y-8 animate-in fade-in duration-300">
-      <div>
-        <h3 className="text-2xl font-bold mb-1">Personal Information</h3>
-        <p className="text-muted-foreground">
-          Start with the basics. This is how employers will contact you.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {FIELD_DEFS.filter((f) => fieldsToShow.includes(f.key)).map((field) => (
-          <div key={field.key} className="space-y-2">
-            <Label htmlFor={field.key}>
-              {field.label}
-              {required.has(field.key) ? " *" : ""}
-            </Label>
-            <Input
-              id={field.key}
-              type={field.type}
-              placeholder={field.placeholder}
-              value={data.personalInfo[field.key]}
-              onChange={(e) => update(field.key, e.target.value)}
-            />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-</file>
-
 <file path="lib/supabase/resumes.ts">
 import { serverSupabase } from "./server";
 import type { Resume, ResumeData } from "@/types";
@@ -4637,6 +5478,22 @@ export async function getUserResumes(userId: string): Promise<Resume[]> {
   }
 
   // Cast the raw DB response to our Resume type
+  return data as unknown as Resume[];
+}
+
+export async function getUserProfiles(userId: string): Promise<Resume[]> {
+  const { data, error } = await serverSupabase
+    .from("resumes")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("is_profile", true)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching profiles:", error);
+    throw new Error("Failed to fetch profiles");
+  }
+
   return data as unknown as Resume[];
 }
 
@@ -4660,7 +5517,9 @@ export async function getResume(id: string, userId: string): Promise<Resume | nu
 export async function createResume(
   userId: string,
   templateId: string,
-  title: string
+  title: string,
+  isProfile = false,
+  profileType: string | null = null
 ): Promise<Resume> {
   const { data, error } = await serverSupabase
     .from("resumes")
@@ -4668,7 +5527,9 @@ export async function createResume(
       user_id: userId,
       template_id: templateId,
       title,
-      resume_data: {}, // Handled by default in DB, but good to be explicit
+      resume_data: {},
+      is_profile: isProfile,
+      profile_type: profileType,
     })
     .select()
     .single();
@@ -4692,6 +5553,10 @@ export async function saveResume(
   if (resumeData.template_id !== undefined) updates.template_id = resumeData.template_id;
   if (resumeData.resume_data !== undefined) updates.resume_data = resumeData.resume_data;
   if (resumeData.status !== undefined) updates.status = resumeData.status;
+  if (resumeData.is_profile !== undefined) updates.is_profile = resumeData.is_profile;
+  if (resumeData.profile_type !== undefined) updates.profile_type = resumeData.profile_type;
+  if (resumeData.assembled_from !== undefined) updates.assembled_from = resumeData.assembled_from;
+  if (resumeData.job_description !== undefined) updates.job_description = resumeData.job_description;
 
   console.log("[DB] saveResume payload:", JSON.stringify(updates.resume_data, null, 2));
 
@@ -4739,177 +5604,6 @@ export async function updateATSScore(
     console.error("Error updating ATS score:", error);
     throw new Error("Failed to update ATS score");
   }
-}
-</file>
-
-<file path="lib/api.ts">
-// ==========================================
-// ResumeAI — Placeholder API Functions
-// Ready for OpenAI, Clerk, and PDF export integration
-// ==========================================
-
-import type { Resume, ATSAnalysis, ResumeData } from "@/types";
-
-/**
- * Generate resume content from free-form text using AI.
- * @placeholder Ready for OpenAI integration
- */
-export async function generateResumeContent(
-  freeText: string
-): Promise<Partial<ResumeData>> {
-  // TODO: Integrate with OpenAI API
-  // const response = await openai.chat.completions.create({
-  //   model: "gpt-4",
-  //   messages: [{ role: "user", content: `Parse this into resume sections: ${freeText}` }],
-  // });
-  console.log("[API] generateResumeContent called with:", freeText.slice(0, 50));
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        personalInfo: {
-          fullName: "Generated Name",
-          email: "user@example.com",
-          phone: "+1 (555) 000-0000",
-          address: "San Francisco, CA",
-          linkedIn: "linkedin.com/in/johndoe",
-          github: "github.com/johndoe",
-          currentRole: "Software Engineer",
-        },
-      });
-    }, 1500);
-  });
-}
-
-/**
- * Analyze a resume against ATS criteria.
- * @placeholder Ready for OpenAI integration
- */
-export async function analyzeATS(resume: Resume): Promise<ATSAnalysis> {
-  // TODO: Integrate with OpenAI API for ATS analysis
-  console.log("[API] analyzeATS called for resume:", resume.id);
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        overallScore: 84,
-        matchedSkills: [
-          "React",
-          "Node.js",
-          "PostgreSQL",
-          "Microservices",
-          "Docker",
-        ],
-        missingKeywords: ["TypeScript", "Jest", "GraphQL"],
-        suggestions: [
-          {
-            id: "sug-1",
-            icon: "edit_note",
-            text: "Add specific metrics to demonstrate impact.",
-            type: "improvement",
-          },
-          {
-            id: "sug-2",
-            icon: "swap_vert",
-            text: "Reorder sections to prioritize relevant experience.",
-            type: "tip",
-          },
-        ],
-      });
-    }, 2000);
-  });
-}
-
-/**
- * Optimize resume for a specific job description.
- * @placeholder Ready for OpenAI integration
- */
-export async function optimizeForJob(
-  resume: Resume,
-  jobDescription: string
-): Promise<ATSAnalysis> {
-  // TODO: Integrate with OpenAI API
-  console.log(
-    "[API] optimizeForJob called for:",
-    resume.id,
-    "job:",
-    jobDescription.slice(0, 50)
-  );
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        overallScore: 91,
-        matchedSkills: [
-          "React",
-          "TypeScript",
-          "Node.js",
-          "Docker",
-          "Kubernetes",
-        ],
-        missingKeywords: ["GraphQL", "Terraform"],
-        suggestions: [
-          {
-            id: "sug-1",
-            icon: "lightbulb",
-            text: "Your resume is well-optimized for this role.",
-            type: "tip",
-          },
-        ],
-      });
-    }, 2500);
-  });
-}
-
-/**
- * Export resume to PDF.
- * @placeholder Ready for PDF export integration (e.g., react-pdf, puppeteer)
- */
-export async function exportToPDF(resume: Resume): Promise<Blob> {
-  // TODO: Integrate with PDF generation library
-  console.log("[API] exportToPDF called for resume:", resume.id);
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // Return a mock blob
-      resolve(new Blob(["PDF content placeholder"], { type: "application/pdf" }));
-    }, 1000);
-  });
-}
-
-/**
- * Save resume to backend.
- * @placeholder Ready for database integration
- */
-export async function saveResume(
-  resume: Partial<Resume>
-): Promise<{ id: string; success: boolean }> {
-  console.log("[API] saveResume called:", resume.title);
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        id: resume.id || `res-${Date.now()}`,
-        success: true,
-      });
-    }, 500);
-  });
-}
-
-/**
- * Delete a resume.
- * @placeholder Ready for database integration
- */
-export async function deleteResume(
-  resumeId: string
-): Promise<{ success: boolean }> {
-  console.log("[API] deleteResume called:", resumeId);
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ success: true });
-    }, 300);
-  });
 }
 </file>
 
@@ -5456,6 +6150,139 @@ export default function TemplatesPage() {
 }
 </file>
 
+<file path="components/forms/personal-info-step.tsx">
+"use client";
+
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import type { ResumeData, ResumePersonalInfo } from "@/types";
+
+const PROFILE_TYPES = [
+  "Backend Developer",
+  "Frontend Developer",
+  "Full Stack Developer",
+  "Data Science",
+  "Research",
+  "DevOps",
+  "Mobile Developer",
+  "Other",
+];
+
+interface PersonalInfoStepProps {
+  data: ResumeData;
+  onChange: (updater: (prev: ResumeData) => ResumeData) => void;
+  visibleFields?: (keyof ResumePersonalInfo)[];
+  requiredFields?: (keyof ResumePersonalInfo)[];
+  isProfile?: boolean;
+  profileType?: string;
+  onProfileTypeChange?: (value: string) => void;
+}
+
+// Default: show all fields
+const ALL_FIELDS: (keyof ResumePersonalInfo)[] = [
+  "fullName",
+  "address",
+  "phone",
+  "email",
+  "linkedIn",
+  "github",
+  "currentRole",
+];
+
+interface FieldDef {
+  key: keyof ResumePersonalInfo;
+  label: string;
+  placeholder: string;
+  type?: string;
+}
+
+const FIELD_DEFS: FieldDef[] = [
+  { key: "fullName", label: "Full Name", placeholder: "John Doe" },
+  { key: "address", label: "Address", placeholder: "123 Street Name, Town, State 12345" },
+  { key: "phone", label: "Phone", placeholder: "123-456-7890", type: "tel" },
+  { key: "email", label: "Email", placeholder: "email@gmail.com", type: "email" },
+  { key: "linkedIn", label: "LinkedIn", placeholder: "linkedin.com/in/username" },
+  { key: "github", label: "GitHub", placeholder: "github.com/username" },
+  { key: "currentRole", label: "Current Role", placeholder: "Software Engineer" },
+];
+
+export function PersonalInfoStep({
+  data,
+  onChange,
+  visibleFields,
+  requiredFields,
+  isProfile,
+  profileType,
+  onProfileTypeChange,
+}: PersonalInfoStepProps) {
+  const fieldsToShow = visibleFields ?? ALL_FIELDS;
+  const required = new Set(requiredFields ?? []);
+
+  const update = (field: keyof ResumePersonalInfo, value: string) => {
+    onChange((prev) => ({
+      ...prev,
+      personalInfo: { ...prev.personalInfo, [field]: value },
+    }));
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      <div>
+        <h3 className="text-2xl font-bold mb-1">Personal Information</h3>
+        <p className="text-muted-foreground">
+          {isProfile
+            ? "Fill in your details for this profile. You can reuse profiles across multiple assembled resumes."
+            : "Start with the basics. This is how employers will contact you."}
+        </p>
+      </div>
+
+      {/* Profile Type Dropdown — only when creating a profile */}
+      {isProfile && onProfileTypeChange && (
+        <div className="space-y-2 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+          <Label htmlFor="profileType" className="text-amber-800 dark:text-amber-300 font-semibold">
+            Profile Type *
+          </Label>
+          <select
+            id="profileType"
+            value={profileType ?? ""}
+            onChange={(e) => onProfileTypeChange(e.target.value)}
+            className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <option value="">Select a profile type…</option>
+            {PROFILE_TYPES.map((pt) => (
+              <option key={pt} value={pt}>
+                {pt}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Choose the domain this profile represents. This helps the AI pick the right content during assembly.
+          </p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {FIELD_DEFS.filter((f) => fieldsToShow.includes(f.key)).map((field) => (
+          <div key={field.key} className="space-y-2">
+            <Label htmlFor={field.key}>
+              {field.label}
+              {required.has(field.key) ? " *" : ""}
+            </Label>
+            <Input
+              id={field.key}
+              type={field.type}
+              placeholder={field.placeholder}
+              value={data.personalInfo[field.key]}
+              onChange={(e) => update(field.key, e.target.value)}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+</file>
+
 <file path="components/layout/top-navbar.tsx">
 "use client";
 
@@ -5919,6 +6746,177 @@ export const ModernTwoColumnTemplate = forwardRef<HTMLDivElement, { data: Resume
 );
 </file>
 
+<file path="lib/api.ts">
+// ==========================================
+// ResumeAI — Placeholder API Functions
+// Ready for OpenAI, Clerk, and PDF export integration
+// ==========================================
+
+import type { Resume, ATSAnalysis, ResumeData } from "@/types";
+
+/**
+ * Generate resume content from free-form text using AI.
+ * @placeholder Ready for OpenAI integration
+ */
+export async function generateResumeContent(
+  freeText: string
+): Promise<Partial<ResumeData>> {
+  // TODO: Integrate with OpenAI API
+  // const response = await openai.chat.completions.create({
+  //   model: "gpt-4",
+  //   messages: [{ role: "user", content: `Parse this into resume sections: ${freeText}` }],
+  // });
+  console.log("[API] generateResumeContent called with:", freeText.slice(0, 50));
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({
+        personalInfo: {
+          fullName: "Generated Name",
+          email: "user@example.com",
+          phone: "+1 (555) 000-0000",
+          address: "San Francisco, CA",
+          linkedIn: "linkedin.com/in/johndoe",
+          github: "github.com/johndoe",
+          currentRole: "Software Engineer",
+        },
+      });
+    }, 1500);
+  });
+}
+
+/**
+ * Analyze a resume against ATS criteria.
+ * @placeholder Ready for OpenAI integration
+ */
+export async function analyzeATS(resume: Resume): Promise<ATSAnalysis> {
+  // TODO: Integrate with OpenAI API for ATS analysis
+  console.log("[API] analyzeATS called for resume:", resume.id);
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({
+        overallScore: 84,
+        matchedSkills: [
+          "React",
+          "Node.js",
+          "PostgreSQL",
+          "Microservices",
+          "Docker",
+        ],
+        missingKeywords: ["TypeScript", "Jest", "GraphQL"],
+        suggestions: [
+          {
+            id: "sug-1",
+            icon: "edit_note",
+            text: "Add specific metrics to demonstrate impact.",
+            type: "improvement",
+          },
+          {
+            id: "sug-2",
+            icon: "swap_vert",
+            text: "Reorder sections to prioritize relevant experience.",
+            type: "tip",
+          },
+        ],
+      });
+    }, 2000);
+  });
+}
+
+/**
+ * Optimize resume for a specific job description.
+ * @placeholder Ready for OpenAI integration
+ */
+export async function optimizeForJob(
+  resume: Resume,
+  jobDescription: string
+): Promise<ATSAnalysis> {
+  // TODO: Integrate with OpenAI API
+  console.log(
+    "[API] optimizeForJob called for:",
+    resume.id,
+    "job:",
+    jobDescription.slice(0, 50)
+  );
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({
+        overallScore: 91,
+        matchedSkills: [
+          "React",
+          "TypeScript",
+          "Node.js",
+          "Docker",
+          "Kubernetes",
+        ],
+        missingKeywords: ["GraphQL", "Terraform"],
+        suggestions: [
+          {
+            id: "sug-1",
+            icon: "lightbulb",
+            text: "Your resume is well-optimized for this role.",
+            type: "tip",
+          },
+        ],
+      });
+    }, 2500);
+  });
+}
+
+/**
+ * Export resume to PDF.
+ * @placeholder Ready for PDF export integration (e.g., react-pdf, puppeteer)
+ */
+export async function exportToPDF(resume: Resume): Promise<Blob> {
+  // TODO: Integrate with PDF generation library
+  console.log("[API] exportToPDF called for resume:", resume.id);
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      // Return a mock blob
+      resolve(new Blob(["PDF content placeholder"], { type: "application/pdf" }));
+    }, 1000);
+  });
+}
+
+/**
+ * Save resume to backend.
+ * @placeholder Ready for database integration
+ */
+export async function saveResume(
+  resume: Partial<Resume>
+): Promise<{ id: string; success: boolean }> {
+  console.log("[API] saveResume called:", resume.title);
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({
+        id: resume.id || `res-${Date.now()}`,
+        success: true,
+      });
+    }, 500);
+  });
+}
+
+/**
+ * Delete a resume.
+ * @placeholder Ready for database integration
+ */
+export async function deleteResume(
+  resumeId: string
+): Promise<{ success: boolean }> {
+  console.log("[API] deleteResume called:", resumeId);
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({ success: true });
+    }, 300);
+  });
+}
+</file>
+
 <file path="app/(dashboard)/dashboard/page.tsx">
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6374,12 +7372,76 @@ export default async function LandingPage() {
 }
 </file>
 
+<file path="components/layout/top-app-bar.tsx">
+"use client";
+
+import { Bell, Search, Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { SideNavbar } from "./side-navbar";
+import { UserButton } from "@clerk/nextjs";
+
+interface TopAppBarProps {
+  title?: string;
+}
+
+export function TopAppBar({ title = "Dashboard" }: TopAppBarProps) {
+  return (
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6">
+      <div className="flex items-center gap-4">
+        {/* Mobile Sidebar Trigger */}
+        <div className="md:hidden">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-64">
+              <SideNavbar className="w-full" />
+            </SheetContent>
+          </Sheet>
+        </div>
+        
+        <h1 className="text-lg font-semibold text-foreground hidden sm:block">
+          {title}
+        </h1>
+      </div>
+
+      <div className="flex items-center gap-4 flex-1 justify-end">
+        {/* Search Bar - hidden on very small screens */}
+        <div className="relative w-full max-w-sm hidden md:flex items-center">
+          <Search className="absolute left-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search resumes..."
+            className="w-full pl-9 bg-muted/50 border-transparent focus-visible:bg-background focus-visible:border-ring"
+          />
+        </div>
+
+        {/* Action Buttons */}
+        <Button variant="ghost" size="icon" className="relative text-muted-foreground">
+          <Bell className="h-5 w-5" />
+          <span className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-destructive"></span>
+          <span className="sr-only">Notifications</span>
+        </Button>
+
+        {/* User Profile */}
+        <UserButton />
+      </div>
+    </header>
+  );
+}
+</file>
+
 <file path="components/forms/template-selection-step.tsx">
 "use client";
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, FileText, GraduationCap, Briefcase, Code, Award, BookOpen, Wrench, Users, Library, Target } from "lucide-react";
+import { CheckCircle, FileText, GraduationCap, Briefcase, Code, Award, BookOpen, Wrench, Users, Library, Target, FileSignature } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TEMPLATE_CONFIGS, getTemplateIds } from "@/lib/template-configs";
 import type { FormSectionKey } from "@/lib/template-configs";
@@ -6402,6 +7464,7 @@ const SECTION_ICONS: Record<FormSectionKey, React.ReactNode> = {
   "training": <Award className="w-3.5 h-3.5" />,
   "publications": <Library className="w-3.5 h-3.5" />,
   "objective": <Target className="w-3.5 h-3.5" />,
+  "references": <FileSignature className="w-3.5 h-3.5" />,
 };
 
 const SECTION_LABELS: Record<FormSectionKey, string> = {
@@ -6415,6 +7478,7 @@ const SECTION_LABELS: Record<FormSectionKey, string> = {
   "training": "Training",
   "publications": "Publications",
   "objective": "Objective",
+  "references": "References",
 };
 
 
@@ -6517,66 +7581,137 @@ export function TemplateSelectionStep({
 }
 </file>
 
-<file path="components/layout/top-app-bar.tsx">
+<file path="components/layout/side-navbar.tsx">
 "use client";
 
-import { Bell, Search, Menu } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { SideNavbar } from "./side-navbar";
-import { UserButton } from "@clerk/nextjs";
+import { cn } from "@/lib/utils";
+import {
+  LayoutDashboard,
+  FileText,
+  FilePlus2,
+  LayoutTemplate,
+  Settings,
+  CreditCard,
+  HelpCircle,
+  UserCircle2,
+  Sparkles,
+} from "lucide-react";
+import { useUser, UserButton } from "@clerk/nextjs";
 
-interface TopAppBarProps {
-  title?: string;
-}
+export const DASHBOARD_SIDEBAR_WIDTH = "w-64";
 
-export function TopAppBar({ title = "Dashboard" }: TopAppBarProps) {
+const mainNavItems = [
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "My Resumes", href: "/resumes", icon: FileText },
+  { label: "My Profiles", href: "/profiles", icon: UserCircle2 },
+  { label: "Smart Assemble", href: "/assemble", icon: Sparkles },
+  { label: "Create Resume", href: "/builder?new=1", icon: FilePlus2 },
+  { label: "Templates", href: "/templates", icon: LayoutTemplate },
+];
+
+const footerNavItems = [
+  { label: "Settings", href: "/settings", icon: Settings },
+  { label: "Billing", href: "/settings?tab=billing", icon: CreditCard },
+  { label: "Help Center", href: "#", icon: HelpCircle },
+];
+
+export function SideNavbar({ className }: { className?: string }) {
+  const pathname = usePathname();
+  const { user } = useUser();
+
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6">
-      <div className="flex items-center gap-4">
-        {/* Mobile Sidebar Trigger */}
-        <div className="md:hidden">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden">
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Toggle menu</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-64">
-              <SideNavbar className="w-full" />
-            </SheetContent>
-          </Sheet>
-        </div>
-        
-        <h1 className="text-lg font-semibold text-foreground hidden sm:block">
-          {title}
-        </h1>
+    <aside
+      className={cn(
+        "flex flex-col h-screen border-r border-sidebar-border bg-sidebar text-sidebar-foreground",
+        DASHBOARD_SIDEBAR_WIDTH,
+        className
+      )}
+    >
+      {/* Brand Header */}
+      <div className="p-6">
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <div className="bg-primary text-primary-foreground p-1.5 rounded-lg">
+            <FileText className="w-5 h-5" />
+          </div>
+          <span className="font-heading font-bold text-xl tracking-tight">
+            ResumeAI
+          </span>
+        </Link>
       </div>
 
-      <div className="flex items-center gap-4 flex-1 justify-end">
-        {/* Search Bar - hidden on very small screens */}
-        <div className="relative w-full max-w-sm hidden md:flex items-center">
-          <Search className="absolute left-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search resumes..."
-            className="w-full pl-9 bg-muted/50 border-transparent focus-visible:bg-background focus-visible:border-ring"
-          />
-        </div>
-
-        {/* Action Buttons */}
-        <Button variant="ghost" size="icon" className="relative text-muted-foreground">
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-destructive"></span>
-          <span className="sr-only">Notifications</span>
-        </Button>
-
-        {/* User Profile */}
-        <UserButton />
+      {/* New Resume CTA */}
+      <div className="px-4 mb-6">
+        <Link href="/builder?new=1">
+          <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm">
+            <FilePlus2 className="mr-2 w-4 h-4" />
+            New Resume
+          </Button>
+        </Link>
       </div>
-    </header>
+
+      {/* Main Navigation */}
+      <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
+        <div className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Menu
+        </div>
+        {mainNavItems.map((item) => {
+          const isActive = pathname.startsWith(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground border-r-2 border-primary"
+                  : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
+              )}
+            >
+              <item.icon
+                className={cn("w-5 h-5", isActive ? "text-primary" : "")}
+              />
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Footer Navigation */}
+      <div className="p-4 border-t border-sidebar-border mt-auto">
+        <nav className="space-y-1 mb-4">
+          {footerNavItems.map((item) => {
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
+                )}
+              >
+                <item.icon className="w-4 h-4" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* User Profile Summary */}
+        <div className="flex items-center gap-3 px-2 py-2 mt-2">
+          <UserButton />
+          <div className="flex-1 overflow-hidden">
+            <p className="text-sm font-medium text-foreground truncate">
+              {user?.fullName || "User"}
+            </p>
+            <p className="text-xs text-muted-foreground truncate">
+              {user?.primaryEmailAddress?.emailAddress || "user@example.com"}
+            </p>
+          </div>
+        </div>
+      </div>
+    </aside>
   );
 }
 </file>
@@ -6617,6 +7752,7 @@ export const SECTION_LABELS: Record<FormSectionKey, string> = {
   "leadership": "Leadership",
   "training": "Training",
   "publications": "Publications",
+  "references": "References",
 };
 
 // ─── Template Configs ────────────────────────────────────
@@ -6690,6 +7826,8 @@ export const TEMPLATE_CONFIGS: Record<string, TemplateConfig> = {
       "education",
       "technical-skills",
       "experience",
+      "leadership",
+      "references",
     ],
     personalInfoFields: ["fullName", "currentRole", "address", "phone", "email", "linkedIn", "github"],
     requiredPersonalInfoFields: ["fullName", "email"],
@@ -6819,6 +7957,10 @@ export interface Resume {
   resume_data: ResumeData;
   ats_score: number | null;
   status: "draft" | "published";
+  is_profile: boolean;
+  profile_type: string | null;
+  assembled_from: string[] | null;
+  job_description: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -6948,6 +8090,7 @@ export interface ResumeData {
   leadership: ResumeLeadership[];
   training: ResumeTraining[];
   publications: ResumePublication[];
+  references: string;
 }
 
 // ---------- Builder Steps ----------
@@ -6962,6 +8105,7 @@ export type BuilderStep =
   | "leadership"
   | "training"
   | "publications"
+  | "references"
   | "template";
 
 export interface BuilderState {
@@ -7000,134 +8144,42 @@ export interface NavItem {
 }
 </file>
 
-<file path="components/layout/side-navbar.tsx">
-"use client";
-
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import {
-  LayoutDashboard,
-  FileText,
-  FilePlus2,
-  LayoutTemplate,
-  Settings,
-  CreditCard,
-  HelpCircle,
-} from "lucide-react";
-import { useUser, UserButton } from "@clerk/nextjs";
-
-export const DASHBOARD_SIDEBAR_WIDTH = "w-64";
-
-const mainNavItems = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "My Resumes", href: "/resumes", icon: FileText },
-  { label: "Create Resume", href: "/builder?new=1", icon: FilePlus2 },
-  { label: "Templates", href: "/templates", icon: LayoutTemplate },
-];
-
-const footerNavItems = [
-  { label: "Settings", href: "/settings", icon: Settings },
-  { label: "Billing", href: "/settings?tab=billing", icon: CreditCard },
-  { label: "Help Center", href: "#", icon: HelpCircle },
-];
-
-export function SideNavbar({ className }: { className?: string }) {
-  const pathname = usePathname();
-  const { user } = useUser();
-
-  return (
-    <aside
-      className={cn(
-        "flex flex-col h-screen border-r border-sidebar-border bg-sidebar text-sidebar-foreground",
-        DASHBOARD_SIDEBAR_WIDTH,
-        className
-      )}
-    >
-      {/* Brand Header */}
-      <div className="p-6">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="bg-primary text-primary-foreground p-1.5 rounded-lg">
-            <FileText className="w-5 h-5" />
-          </div>
-          <span className="font-heading font-bold text-xl tracking-tight">
-            ResumeAI
-          </span>
-        </Link>
-      </div>
-
-      {/* New Resume CTA */}
-      <div className="px-4 mb-6">
-        <Link href="/builder?new=1">
-          <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm">
-            <FilePlus2 className="mr-2 w-4 h-4" />
-            New Resume
-          </Button>
-        </Link>
-      </div>
-
-      {/* Main Navigation */}
-      <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-        <div className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Menu
-        </div>
-        {mainNavItems.map((item) => {
-          const isActive = pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground border-r-2 border-primary"
-                  : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
-              )}
-            >
-              <item.icon
-                className={cn("w-5 h-5", isActive ? "text-primary" : "")}
-              />
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Footer Navigation */}
-      <div className="p-4 border-t border-sidebar-border mt-auto">
-        <nav className="space-y-1 mb-4">
-          {footerNavItems.map((item) => {
-            return (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
-                )}
-              >
-                <item.icon className="w-4 h-4" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* User Profile Summary */}
-        <div className="flex items-center gap-3 px-2 py-2 mt-2">
-          <UserButton />
-          <div className="flex-1 overflow-hidden">
-            <p className="text-sm font-medium text-foreground truncate">
-              {user?.fullName || "User"}
-            </p>
-            <p className="text-xs text-muted-foreground truncate">
-              {user?.primaryEmailAddress?.emailAddress || "user@example.com"}
-            </p>
-          </div>
-        </div>
-      </div>
-    </aside>
-  );
+<file path="package.json">
+{
+  "name": "resume_ai",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "^7.5.3",
+    "@supabase/supabase-js": "^2.108.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.20.0",
+    "next": "16.2.9",
+    "radix-ui": "^1.6.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-to-print": "^3.3.0",
+    "shadcn": "^4.11.0",
+    "tailwind-merge": "^3.6.0",
+    "tw-animate-css": "^1.4.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.9",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
 }
 </file>
 
@@ -7178,6 +8230,7 @@ export function getEmptyResumeData(): ResumeData {
     leadership: [],
     training: [],
     publications: [],
+    references: "",
   };
 }
 
@@ -7296,6 +8349,7 @@ export function useResumeBuilder(templateId: string | null) {
                 leadership: Array.isArray(loaded.leadership) ? loaded.leadership : empty.leadership,
                 training: Array.isArray(loaded.training) ? loaded.training : empty.training,
                 publications: Array.isArray(loaded.publications) ? loaded.publications : empty.publications,
+                references: loaded.references ?? empty.references,
               });
             }
             if (data.template_id) {
@@ -7372,7 +8426,13 @@ export function useResumeBuilder(templateId: string | null) {
   }, []);
 
   const saveToDatabase = useCallback(
-    async (title: string, currentTemplateId: string, dataToSave?: ResumeData) => {
+    async (
+      title: string,
+      currentTemplateId: string,
+      dataToSave?: ResumeData,
+      isProfile = false,
+      profileType: string | null = null
+    ) => {
       const payload = dataToSave ?? resumeData;
       setIsSaving(true);
       try {
@@ -7386,6 +8446,8 @@ export function useResumeBuilder(templateId: string | null) {
             template_id: currentTemplateId,
             resume_data: payload,
             status: "published",
+            is_profile: isProfile,
+            profile_type: profileType,
           }),
         });
         if (!res.ok) throw new Error("Failed to save resume");
@@ -7419,45 +8481,6 @@ export function useResumeBuilder(templateId: string | null) {
 }
 </file>
 
-<file path="package.json">
-{
-  "name": "resume_ai",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "@clerk/nextjs": "^7.5.3",
-    "@supabase/supabase-js": "^2.108.2",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "lucide-react": "^1.20.0",
-    "next": "16.2.9",
-    "radix-ui": "^1.6.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "react-to-print": "^3.3.0",
-    "shadcn": "^4.11.0",
-    "tailwind-merge": "^3.6.0",
-    "tw-animate-css": "^1.4.0"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.9",
-    "tailwindcss": "^4",
-    "typescript": "^5"
-  }
-}
-</file>
-
 <file path="app/(dashboard)/builder/page.tsx">
 "use client";
 
@@ -7486,10 +8509,13 @@ function BuilderContent() {
   const router = useRouter();
   const resumeId = searchParams?.get("id");
   const templateParam = searchParams?.get("template");
+  const isProfileMode = searchParams?.get("isProfile") === "true";
+  const profileTypeParam = searchParams?.get("profileType") ?? "";
 
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
     resumeId ? null : (templateParam || "ats-professional")
   );
+  const [profileType, setProfileType] = useState(profileTypeParam);
 
   const builder = useResumeBuilder(selectedTemplateId);
 
@@ -7511,21 +8537,23 @@ function BuilderContent() {
   const handleGenerate = useCallback(async () => {
     try {
       const title = builder.resumeData.personalInfo.fullName 
-        ? `${builder.resumeData.personalInfo.fullName} Resume`
-        : "Untitled Resume";
+        ? `${builder.resumeData.personalInfo.fullName} ${isProfileMode ? "Profile" : "Resume"}`
+        : isProfileMode ? "Untitled Profile" : "Untitled Resume";
       
       const currentData = builder.resumeData;
       await builder.saveToDatabase(
         title,
         selectedTemplateId || "ats-professional",
-        currentData
+        currentData,
+        isProfileMode,
+        profileType || null
       );
     } catch (error) {
       console.error("Failed to save resume:", error);
       // We still proceed to generating so the user can download their PDF even if DB save fails
     }
     setPhase("generating");
-  }, [builder, selectedTemplateId]);
+  }, [builder, selectedTemplateId, isProfileMode, profileType]);
 
   const handleGenerateComplete = useCallback(async () => {
     await generatePDF();
@@ -7586,6 +8614,9 @@ function BuilderContent() {
         onChange={builder.updateResumeData}
         visibleFields={key === "personal-info" ? templateConfig.personalInfoFields : undefined}
         requiredFields={key === "personal-info" ? templateConfig.requiredPersonalInfoFields : undefined}
+        isProfile={key === "personal-info" ? isProfileMode : undefined}
+        profileType={key === "personal-info" ? profileType : undefined}
+        onProfileTypeChange={key === "personal-info" ? setProfileType : undefined}
       />
     );
   };

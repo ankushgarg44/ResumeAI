@@ -240,7 +240,13 @@ export function useResumeBuilder(templateId: string | null) {
   }, []);
 
   const saveToDatabase = useCallback(
-    async (title: string, currentTemplateId: string, dataToSave?: ResumeData) => {
+    async (
+      title: string,
+      currentTemplateId: string,
+      dataToSave?: ResumeData,
+      isProfile = false,
+      profileType: string | null = null
+    ) => {
       const payload = dataToSave ?? resumeData;
       setIsSaving(true);
       try {
@@ -254,6 +260,8 @@ export function useResumeBuilder(templateId: string | null) {
             template_id: currentTemplateId,
             resume_data: payload,
             status: "published",
+            is_profile: isProfile,
+            profile_type: profileType,
           }),
         });
         if (!res.ok) throw new Error("Failed to save resume");

@@ -18,6 +18,10 @@ export interface Database {
           resume_data: Json;
           ats_score: number | null;
           status: string;
+          is_profile: boolean;
+          profile_type: string | null;
+          assembled_from: string[] | null;
+          job_description: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -29,6 +33,10 @@ export interface Database {
           resume_data?: Json;
           ats_score?: number | null;
           status?: string;
+          is_profile?: boolean;
+          profile_type?: string | null;
+          assembled_from?: string[] | null;
+          job_description?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -40,6 +48,10 @@ export interface Database {
           resume_data?: Json;
           ats_score?: number | null;
           status?: string;
+          is_profile?: boolean;
+          profile_type?: string | null;
+          assembled_from?: string[] | null;
+          job_description?: string | null;
           created_at?: string;
           updated_at?: string;
         };

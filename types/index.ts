@@ -81,6 +81,10 @@ export interface Resume {
   resume_data: ResumeData;
   ats_score: number | null;
   status: "draft" | "published";
+  is_profile: boolean;
+  profile_type: string | null;
+  assembled_from: string[] | null;
+  job_description: string | null;
   created_at: string;
   updated_at: string;
 }

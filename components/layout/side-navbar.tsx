@@ -12,6 +12,8 @@ import {
   Settings,
   CreditCard,
   HelpCircle,
+  UserCircle2,
+  Sparkles,
 } from "lucide-react";
 import { useUser, UserButton } from "@clerk/nextjs";
 
@@ -20,6 +22,8 @@ export const DASHBOARD_SIDEBAR_WIDTH = "w-64";
 const mainNavItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "My Resumes", href: "/resumes", icon: FileText },
+  { label: "My Profiles", href: "/profiles", icon: UserCircle2 },
+  { label: "Smart Assemble", href: "/assemble", icon: Sparkles },
   { label: "Create Resume", href: "/builder?new=1", icon: FilePlus2 },
   { label: "Templates", href: "/templates", icon: LayoutTemplate },
 ];

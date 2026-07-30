@@ -18,6 +18,9 @@ export interface SectionProps {
   // PersonalInfoStep accepts these optionally
   visibleFields?: string[];
   requiredFields?: string[];
+  isProfile?: boolean;
+  profileType?: string;
+  onProfileTypeChange?: (value: string) => void;
 }
 
 export const SECTION_REGISTRY: Record<FormSectionKey, React.ComponentType<SectionProps>> = {

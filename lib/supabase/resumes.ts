@@ -17,6 +17,22 @@ export async function getUserResumes(userId: string): Promise<Resume[]> {
   return data as unknown as Resume[];
 }
 
+export async function getUserProfiles(userId: string): Promise<Resume[]> {
+  const { data, error } = await serverSupabase
+    .from("resumes")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("is_profile", true)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching profiles:", error);
+    throw new Error("Failed to fetch profiles");
+  }
+
+  return data as unknown as Resume[];
+}
+
 export async function getResume(id: string, userId: string): Promise<Resume | null> {
   const { data, error } = await serverSupabase
     .from("resumes")
@@ -37,7 +53,9 @@ export async function getResume(id: string, userId: string): Promise<Resume | nu
 export async function createResume(
   userId: string,
   templateId: string,
-  title: string
+  title: string,
+  isProfile = false,
+  profileType: string | null = null
 ): Promise<Resume> {
   const { data, error } = await serverSupabase
     .from("resumes")
@@ -45,7 +63,9 @@ export async function createResume(
       user_id: userId,
       template_id: templateId,
       title,
-      resume_data: {}, // Handled by default in DB, but good to be explicit
+      resume_data: {},
+      is_profile: isProfile,
+      profile_type: profileType,
     })
     .select()
     .single();
@@ -69,6 +89,10 @@ export async function saveResume(
   if (resumeData.template_id !== undefined) updates.template_id = resumeData.template_id;
   if (resumeData.resume_data !== undefined) updates.resume_data = resumeData.resume_data;
   if (resumeData.status !== undefined) updates.status = resumeData.status;
+  if (resumeData.is_profile !== undefined) updates.is_profile = resumeData.is_profile;
+  if (resumeData.profile_type !== undefined) updates.profile_type = resumeData.profile_type;
+  if (resumeData.assembled_from !== undefined) updates.assembled_from = resumeData.assembled_from;
+  if (resumeData.job_description !== undefined) updates.job_description = resumeData.job_description;
 
   console.log("[DB] saveResume payload:", JSON.stringify(updates.resume_data, null, 2));
 

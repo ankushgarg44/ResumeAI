@@ -5,6 +5,8 @@ import { currentUser } from "@clerk/nextjs/server";
 import { EmptyState } from "@/components/ui/empty-state";
 import Link from "next/link";
 import { getUserResumes } from "@/lib/supabase/resumes";
+import { SeedResumesButton } from "@/components/resumes/seed-button";
+import { DashboardResumeActions } from "@/components/resumes/dashboard-resume-actions";
 
 export default async function DashboardPage() {
   const user = await currentUser();
@@ -110,14 +112,17 @@ export default async function DashboardPage() {
         {recentResumes.length === 0 ? (
           <EmptyState
             title="No resumes yet"
-            description="Create your first AI-powered resume to get started."
+            description="Create your first AI-powered resume or generate test sample resumes to try out features."
             icon={<FileText className="w-8 h-8" />}
             action={
-              <Link href="/builder?new=1">
-                <Button className="bg-primary text-primary-foreground shadow-sm">
-                  Create Resume
-                </Button>
-              </Link>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Link href="/builder?new=1">
+                  <Button className="bg-primary text-primary-foreground shadow-sm w-full sm:w-auto">
+                    Create Resume
+                  </Button>
+                </Link>
+                <SeedResumesButton variant="outline" />
+              </div>
             }
           />
         ) : (
@@ -153,6 +158,7 @@ export default async function DashboardPage() {
                         Edit
                       </Button>
                     </Link>
+                    <DashboardResumeActions resume={resume} />
                   </div>
                 </div>
               </Card>
