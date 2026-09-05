@@ -101,7 +101,7 @@ Assemble the best resume for this job. Return JSON only.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: process.env.GROQ_MODEL ?? "openai/gpt-oss-120b",
         response_format: { type: "json_object" },
         temperature: 0.3,
         max_tokens: 4000,

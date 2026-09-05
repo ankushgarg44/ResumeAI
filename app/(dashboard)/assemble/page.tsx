@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,7 @@ import {
   Check,
   Loader2,
   FileEdit,
+  Download,
   RotateCcw,
   UserCircle2,
   ChevronDown,
@@ -20,7 +22,8 @@ import {
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { TEMPLATE_CONFIGS, getTemplateIds } from "@/lib/template-configs";
-import type { Resume } from "@/types";
+import { ResumePreviewModal } from "@/components/resumes/resume-preview-modal";
+import type { Resume, ResumeData } from "@/types";
 
 const loadingMessages = [
   "Reading your profiles...",
@@ -33,7 +36,7 @@ const loadingMessages = [
 
 interface AssembleResult {
   resumeId: string;
-  assembledResume: any;
+  assembledResume: ResumeData;
   reasoning: {
     summary: string;
     experience: string;
@@ -65,6 +68,11 @@ export default function AssemblePage() {
   const [openReasoningSections, setOpenReasoningSections] = useState<Set<string>>(
     new Set(["summary"])
   );
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [assembledTitle, setAssembledTitle] = useState("Assembled Resume");
+  const [savingDestination, setSavingDestination] = useState<"resume" | "profile" | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Fetch profiles on mount
   useEffect(() => {
@@ -74,7 +82,7 @@ export default function AssemblePage() {
         if (!res.ok) throw new Error("Failed to fetch profiles");
         const data = await res.json();
         setProfiles(data);
-      } catch (err) {
+      } catch {
         setProfileError("Failed to load profiles. Please try again.");
       } finally {
         setLoadingProfiles(false);
@@ -122,8 +130,10 @@ export default function AssemblePage() {
       const data: AssembleResult = await res.json();
       setResult(data);
       setStep(3);
-    } catch (err: any) {
-      setAssembleError(err.message || "Something went wrong. Please try again.");
+    } catch (err: unknown) {
+      setAssembleError(
+        err instanceof Error ? err.message : "Something went wrong. Please try again."
+      );
     } finally {
       setIsAssembling(false);
     }
@@ -144,6 +154,51 @@ export default function AssemblePage() {
     setJobDescription("");
     setResult(null);
     setAssembleError(null);
+    setAssembledTitle("Assembled Resume");
+  };
+
+  const handleSaveDestination = async (destination: "resume" | "profile") => {
+    if (!result) return;
+    const title = assembledTitle.trim();
+    if (!title) {
+      setSaveError("Enter a name before saving the resume.");
+      return;
+    }
+
+    setSavingDestination(destination);
+    setSaveMessage(null);
+    setSaveError(null);
+
+    try {
+      const res = await fetch(`/api/resumes/${result.resumeId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          status: "published",
+          is_profile: destination === "profile",
+          profile_type:
+            destination === "profile"
+              ? result.assembledResume.personalInfo.currentRole || "Assembled Profile"
+              : null,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to save resume");
+
+      setSaveMessage(
+        destination === "profile"
+          ? "Saved to Profiles and My Resumes."
+          : "Saved to My Resumes."
+      );
+    } catch (error: unknown) {
+      setSaveError(
+        error instanceof Error ? error.message : "Failed to save resume."
+      );
+    } finally {
+      setSavingDestination(null);
+    }
   };
 
   // ─── STEP 1: Select Profiles ─────────────────
@@ -219,7 +274,7 @@ export default function AssemblePage() {
                         </h4>
                         <p className="text-xs text-muted-foreground mt-1">
                           Updated{" "}
-                          {new Date(profile.updated_at).toLocaleDateString()}
+                          {new Date(profile.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                         </p>
                       </div>
                       <div
@@ -464,13 +519,74 @@ export default function AssemblePage() {
         </div>
 
         {/* Actions */}
+        {(saveMessage || saveError) && (
+          <div
+            className={cn(
+              "rounded-lg border p-3 text-sm",
+              saveError
+                ? "border-red-200 bg-red-50 text-red-700"
+                : "border-emerald-200 bg-emerald-50 text-emerald-700"
+            )}
+          >
+            {saveError || saveMessage}
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <label htmlFor="assembledResumeName" className="text-sm font-medium text-foreground">
+            Resume name
+          </label>
+          <Input
+            id="assembledResumeName"
+            value={assembledTitle}
+            onChange={(event) => setAssembledTitle(event.target.value)}
+            placeholder="e.g. Consulting Resume"
+            maxLength={120}
+          />
+        </div>
+
         <div className="flex flex-col sm:flex-row gap-3">
           <Link href={`/builder?id=${result.resumeId}`} className="flex-1">
             <Button className="w-full bg-primary text-primary-foreground">
               <FileEdit className="w-4 h-4 mr-2" />
-              Edit & Download
+              Edit Resume
             </Button>
           </Link>
+          <Button
+            variant="outline"
+            onClick={() => handleSaveDestination("resume")}
+            disabled={savingDestination !== null || !assembledTitle.trim()}
+            className="flex-1 bg-background"
+          >
+            {savingDestination === "resume" ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <FileEdit className="w-4 h-4 mr-2" />
+            )}
+            Save to Resumes
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleSaveDestination("profile")}
+            disabled={savingDestination !== null || !assembledTitle.trim()}
+            className="flex-1 bg-background"
+          >
+            {savingDestination === "profile" ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <UserCircle2 className="w-4 h-4 mr-2" />
+            )}
+            Save to Profiles
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setIsPreviewOpen(true)}
+            disabled={savingDestination !== null}
+            className="flex-1 bg-background"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Download PDF
+          </Button>
           <Button
             variant="outline"
             onClick={resetWizard}
@@ -480,6 +596,17 @@ export default function AssemblePage() {
             Assemble Another
           </Button>
         </div>
+
+        <ResumePreviewModal
+          resume={{
+            id: result.resumeId,
+            title: assembledTitle.trim() || "Assembled Resume",
+            template_id: result.templateId,
+            resume_data: result.assembledResume,
+          } as Resume}
+          open={isPreviewOpen}
+          onClose={() => setIsPreviewOpen(false)}
+        />
       </div>
     );
   }

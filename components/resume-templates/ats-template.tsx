@@ -18,7 +18,26 @@ function formatDate(dateStr: string): string {
 
 export const ATSTemplate = forwardRef<HTMLDivElement, ATSTemplateProps>(
   function ATSTemplate({ data }, ref) {
-    const { personalInfo, education, coursework, experience, projects, technicalSkills, leadership } = data;
+    const safeData: Partial<ResumeData> = data || {};
+    const personalInfo = safeData.personalInfo ?? {
+      fullName: "",
+      address: "",
+      phone: "",
+      email: "",
+      linkedIn: "",
+      github: "",
+      currentRole: "",
+    };
+    const education = safeData.education ?? [];
+    const coursework = safeData.coursework ?? [];
+    const experience = safeData.experience ?? [];
+    const projects = safeData.projects ?? [];
+    const technicalSkills = safeData.technicalSkills ?? {
+      languages: [],
+      developerTools: [],
+      frameworks: [],
+    };
+    const leadership = safeData.leadership ?? [];
 
     return (
       <div

@@ -131,7 +131,7 @@ export function ResumesClient({ allResumes }: { allResumes: Resume[] }) {
                 </h4>
                 <div className="flex items-center text-xs text-muted-foreground mb-4">
                   <Clock className="w-3 h-3 mr-1" />
-                  Updated {new Date(resume.updated_at).toLocaleDateString()}
+                  Updated {new Date(resume.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                 </div>
                 
                 <div className="mt-auto pt-4 border-t border-border flex items-center gap-2">
