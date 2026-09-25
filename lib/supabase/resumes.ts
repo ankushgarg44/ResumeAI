@@ -1,8 +1,8 @@
-import { serverSupabase } from "./server";
+import { getServerSupabase } from "./server";
 import type { Resume, ResumeData } from "@/types";
 
 export async function getUserResumes(userId: string): Promise<Resume[]> {
-  const { data, error } = await serverSupabase
+  const { data, error } = await getServerSupabase()
     .from("resumes")
     .select("*")
     .eq("user_id", userId)
@@ -18,7 +18,7 @@ export async function getUserResumes(userId: string): Promise<Resume[]> {
 }
 
 export async function getUserProfiles(userId: string): Promise<Resume[]> {
-  const { data, error } = await serverSupabase
+  const { data, error } = await getServerSupabase()
     .from("resumes")
     .select("*")
     .eq("user_id", userId)
@@ -34,7 +34,7 @@ export async function getUserProfiles(userId: string): Promise<Resume[]> {
 }
 
 export async function getResume(id: string, userId: string): Promise<Resume | null> {
-  const { data, error } = await serverSupabase
+  const { data, error } = await getServerSupabase()
     .from("resumes")
     .select("*")
     .eq("id", id)
@@ -57,7 +57,7 @@ export async function createResume(
   isProfile = false,
   profileType: string | null = null
 ): Promise<Resume> {
-  const { data, error } = await serverSupabase
+  const { data, error } = await getServerSupabase()
     .from("resumes")
     .insert({
       user_id: userId,
@@ -96,7 +96,7 @@ export async function saveResume(
 
   console.log("[DB] saveResume payload:", JSON.stringify(updates.resume_data, null, 2));
 
-  const { data, error } = await serverSupabase
+  const { data, error } = await getServerSupabase()
     .from("resumes")
     .update(updates)
     .eq("id", id)
@@ -113,7 +113,7 @@ export async function saveResume(
 }
 
 export async function deleteResume(id: string, userId: string): Promise<void> {
-  const { error } = await serverSupabase
+  const { error } = await getServerSupabase()
     .from("resumes")
     .delete()
     .eq("id", id)
@@ -130,7 +130,7 @@ export async function updateATSScore(
   userId: string,
   score: number
 ): Promise<void> {
-  const { error } = await serverSupabase
+  const { error } = await getServerSupabase()
     .from("resumes")
     .update({ ats_score: score })
     .eq("id", id)

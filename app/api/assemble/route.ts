@@ -1,5 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
-import { serverSupabase } from "@/lib/supabase/server";
+import { getServerSupabase } from "@/lib/supabase/server";
 import { createResume, saveResume } from "@/lib/supabase/resumes";
 
 export async function POST(req: Request) {
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   }
 
   // Fetch selected profiles
-  const { data: profiles, error } = await serverSupabase
+  const { data: profiles, error } = await getServerSupabase()
     .from("resumes")
     .select("*")
     .in("id", profileIds)

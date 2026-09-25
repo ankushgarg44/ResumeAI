@@ -1,0 +1,17 @@
+.git
+.github
+.next
+node_modules
+
+.env
+.env.*
+!.env.example
+
+coverage
+*.log
+*.tsbuildinfo
+.DS_Store
+
+repomix-output.xml
+resume_template*.pdf
+resume_template_page1.png
